@@ -4,7 +4,7 @@ import NeuralCFD.grid.state as st
 
 class grid:
 
-    def __init__(self, L, ncells, thermo, device, dtype):
+    def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0):
         assert type(ncells) == int
         assert type(L) == float
 
@@ -19,7 +19,7 @@ class grid:
         self.dtype = dtype
 
         # Creates everything with ghost cells
-        self.__createSpatialProperties()
+        self.__createSpatialProperties(custome_S)
         self.__createQ()
         self.__createInterfaces()
 
@@ -243,9 +243,19 @@ class grid:
             raise NotImplementedError("Only 'periodic', 'flame1d', 'flame1d_P_out_eq_P_in', 'closed', 'outlets', 'outlets_nonreflective' BC implemented")
 
 
-    def __createSpatialProperties(self):
+    def __createSpatialProperties(self, custom_S=1.0):
         self.dx = self.L / self.ncells
         self.x = (torch.arange(self.ncells, device=self.device, dtype=self.dtype) + 0.5) * self.dx
+
+        if custom_S is not None:
+            if isinstance(custom_S, (int, float)):
+                self.S = custom_S + torch.zeros(self.ncells + 1, device=self.device, dtype=self.dtype)
+            else:
+                if custom_S.dim() != 1:
+                    raise ValueError(f'Custom Surfaces must be a 1D tensor or a float/int but it has dimension {custom_S.dim()}')
+                if len(custom_S) != self.ncells + 1:
+                    raise ValueError(f'Custom Surfaces must be a float/integer or must be a 1D tensor of length {self.ncells+1} but has length {len(custom_S)}')
+                self.S = custom_S
 
     def __createQ(self):
         self.cells = st.state(self.ncells, self.nspecies, self.device, self.dtype)

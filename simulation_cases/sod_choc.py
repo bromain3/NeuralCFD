@@ -41,12 +41,12 @@ if __name__ == "__main__":
     print(T0[0], T0[-1])
 
 
-    solver = solv_AUSMPlusUp.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='../data')
+    solver = solv_rus.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='../data')
 
-    #solver.solve(0.005, 100000, 0.5, 'sod_choc_AUSM+up.json')
+    solver.solve(0.005, 100000, 0.5, 'sod_choc_custom_S.json')
 
-    post_proc = pp.PostProcessing('../data', 'sod_choc_AUSM+up.json')
-    #post_proc.animateField('P')
-    post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json'], 'rho')
+    post_proc = pp.PostProcessing('../data', 'sod_choc_custom_S.json')
+    #post_proc.animateField('rho')
+    post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json', '../data/sod_choc_custom_S.json'], 'rho')
 
     #5328Mo vram and 0.02205 s of computation time per step before GPU memory optimisation

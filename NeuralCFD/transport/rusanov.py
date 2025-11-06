@@ -30,6 +30,6 @@ class rusanovFlux:
 
     def transport(self, dt, grid, bc):
         F_int, smax_global = self.rusanov_flux(grid)
-        grid.updateCellsState(grid.cells.Q - dt * ((F_int[:, 1:] - F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)
+        grid.updateCellsState(grid.cells.Q - dt * ((grid.S[1:] * F_int[:, 1:] - grid.S[:-1] * F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)
 
         return(smax_global)

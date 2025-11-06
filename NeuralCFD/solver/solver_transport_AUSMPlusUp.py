@@ -1,11 +1,8 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.transport.AUSMPlusUp as AUSMPlusUp
-import NeuralCFD.utilities_functions.primitive_converter as pc
-
 import torch
 import time
-import matplotlib.pyplot as plt
 import json
 import os
 import gc
