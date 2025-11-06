@@ -201,7 +201,7 @@ class thermo:
         """Créer la grille de températures pour la table (1D)."""
         return(torch.linspace(Tmin, Tmax, Ntab, device=self.device, dtype=self.dtype))
 
-    def guess_T_from_table(self, e, Y, Tmin=200.0, Tmax=6000.0, Ntab=300):
+    def guess_T_from_table(self, e, Y, Tmin=200.0, Tmax=6000.0, Ntab=30):#TODO: find a way to reduce memory usage of this table, maybe even change initialisation methode or make it run on cpu to prevent GPU VRAM overload
         """
         Estimer T à partir de e et Y en interpolant sur une table.
         e: (N,)

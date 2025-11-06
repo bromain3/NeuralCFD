@@ -6,6 +6,8 @@ import torch
 import time
 import json
 import os
+import gc
+
 # TODO: create a ABC class for solver parent that defines general functions like saving
 
 class solver:
@@ -79,6 +81,11 @@ class solver:
         t0 = time.time()
 
         self.setIntialConditions()
+        torch.cuda.empty_cache() # removes from the cache heavy temperature table made for initialisation
+        gc.collect() # removes from the cache heavy temperature table made for initialisation
+
+        print(f"Max mémoire used : {torch.cuda.memory.max_memory_allocated() / 1024 ** 2:.2f} Mb")
+        print(f"Max mémoire reserved : {torch.cuda.memory.max_memory_reserved() / 1024 ** 2:.2f} Mb")
 
         # load self.* that are used in the loop to be a bit faster
         while self.t < tmax and self.step < maxiter:
