@@ -39,10 +39,11 @@ class PostProcessing:
             data[variable] = interp1d(data['t'], data[variable], axis=0, bounds_error=True)(time)
 
         fig, ax = plt.subplots()
-        for data in simData:
-            graphs.append(ax.plot(data['x'], data[variable][0])[0])
+        for n, data in enumerate(simData):
+            graphs.append(ax.plot(data['x'], data[variable][0], label=fields[n])[0])
             mins.append(min([min(i) for i in data[variable]]))
             maxs.append(max([max(i) for i in data[variable]]))
+        fig.legend()
         min_y = min(mins)
         max_y = max(maxs)
         delta_y = max_y - min_y
@@ -57,7 +58,7 @@ class PostProcessing:
             time = simData[0]['t'][frame]
             plt.title(variable + f' | t = {time:.6e}')
 
-        anim = FuncAnimation(fig, update, frames=len(simData[0]['t']), interval=80)
+        anim = FuncAnimation(fig, update, frames=len(simData[0]['t']), interval=200)
         plt.show() #TODO: remove what is under
         #plt.show(block=False)
         #input("Animation terminée — appuie sur Entrée pour continuer...")
