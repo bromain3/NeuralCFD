@@ -1,0 +1,8 @@
+*.json
+input_data
+NeuralCFD.egg-info
+simulations_results
+data
+__pycache__
+.pytest_cache
+.idea
