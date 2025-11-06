@@ -1,6 +1,7 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
-import NeuralCFD.solver.solver_transport_rusanov as s
+import NeuralCFD.solver.solver_transport_rusanov as solv_rus
+import NeuralCFD.solver.solver_transport_AUSM as solv_AUSM
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 
@@ -16,7 +17,7 @@ if __name__ == "__main__":
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
 
-    grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
 
 
     bc = {'type': 'closed'}
@@ -38,11 +39,12 @@ if __name__ == "__main__":
     print(T0[0], T0[-1])
 
 
-    solver = s.solver(grid, thermo, bc, U0, savingInterval=100, savingPath='../data')
+    solver = solv_rus.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='../data')
 
-    solver.solve(0.005, 100000, 0.95, 'sod_choc.json')
+    solver.solve(0.005, 100000, 0.5, 'sod_choc_rus.json')
 
-    #post_proc = pp.PostProcessing('../data', 'sod_choc.json')
+    post_proc = pp.PostProcessing('../data', 'sod_choc_rus.json')
     #post_proc.animateField('P')
+    post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json'], 'rho')
 
     #5328Mo vram and 0.02205 s of computation time per step before GPU memory optimisation
