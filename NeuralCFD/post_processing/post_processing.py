@@ -34,6 +34,9 @@ class PostProcessing:
         for f in fields:
             #TODO: interpolate fields on simData[0] time
             simData.append(self.__loadData('', f))
+        time = simData[0]['t']
+        for data in simData:
+            data[variable] = interp1d(data['t'], data[variable], axis=0, bounds_error=True)(time)
 
         fig, ax = plt.subplots()
         for data in simData:
