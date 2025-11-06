@@ -7,7 +7,7 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 from matplotlib.ticker import LogFormatter, ScalarFormatter
 import numpy as np
 from scipy.interpolate import interp1d, PchipInterpolator
-from scipy.integrate import trapz, simps
+from scipy.integrate import trapezoid, simpson
 import re
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -25,6 +25,41 @@ class PostProcessing:
         with open(os.path.join(dataPath, caseName), 'r') as f:
             simData = json.load(f)
         return(simData)
+
+    def animateFields(self, fields, variable):
+        simData = []
+        graphs = []
+        mins = []
+        maxs = []
+        for f in fields:
+            #TODO: interpolate fields on simData[0] time
+            simData.append(self.__loadData('', f))
+
+        fig, ax = plt.subplots()
+        for data in simData:
+            graphs.append(ax.plot(data['x'], data[variable][0])[0])
+            mins.append(min([min(i) for i in data[variable]]))
+            maxs.append(max([max(i) for i in data[variable]]))
+        min_y = min(mins)
+        max_y = max(maxs)
+        delta_y = max_y - min_y
+        blank_proportion = 0.05
+        plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
+        time = simData[0]['t'][0]
+        plt.title(variable + f' | t = {time}')
+        def update(frame):
+            # creating a new graph or updating the graph
+            for g, data in zip(graphs, simData):
+                g.set_ydata(data[variable][frame])
+            time = simData[0]['t'][frame]
+            plt.title(variable + f' | t = {time:.6e}')
+
+        anim = FuncAnimation(fig, update, frames=len(simData[0]['t']), interval=80)
+        plt.show() #TODO: remove what is under
+        #plt.show(block=False)
+        #input("Animation terminée — appuie sur Entrée pour continuer...")
+        #plt.close(fig)
+
 
     def animateField(self, variable):
         if self.simData is None:
@@ -45,11 +80,12 @@ class PostProcessing:
             time = self.simData['t'][frame]
             plt.title(variable + f' | t = {time:.6e}')
 
-        anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=1)
+        anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=80)
         plt.show() #TODO: remove what is under
         #plt.show(block=False)
         #input("Animation terminée — appuie sur Entrée pour continuer...")
         #plt.close(fig)
+
 
     def plotVariable(self, variable, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
         if self.simData is None:
