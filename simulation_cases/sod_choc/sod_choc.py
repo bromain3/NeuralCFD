@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     transportFlux = rusanovFlux()
     solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../../simulation_results/sod_choc')
-    solver.solve(0.005, 100000, 0.50, 'sod_choc_rus.json')
+    solver.solve(0.005, 100000, 0.50, 'sod_choc_rus_full_dx.json')
 
 
     post_proc = pp.PostProcessing('', '')

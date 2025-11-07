@@ -50,7 +50,7 @@ class solver(DummySolver):
         # load self.* that are used in the loop to be a bit faster
         while self.t < tmax and self.step < maxiter:
             smax = torch.max(self.Transport.max_wave_speed(self.grid.cells)).item()
-            dt_cfl = self.grid.dx / (smax + 1e-12) * CFL
+            dt_cfl = torch.min(self.grid.dx).item() / (smax + 1e-12) * CFL
             #assert networkdt <= dt_cfl_1, 'networkdt must be less than dt computed with cfl=1 otherwise it will crash'
             #dt = min(dt_cfl_1, dtMax)
             dt = min(dt_cfl, tmax - self.t)

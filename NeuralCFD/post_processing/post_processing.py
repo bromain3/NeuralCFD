@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
+#TODO: plot (animated or not) a subpolt with rho, T, P, u and the geometry with a colormap plot to show dx
 
 class PostProcessing:
 
