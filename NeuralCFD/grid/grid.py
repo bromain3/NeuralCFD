@@ -4,7 +4,7 @@ import NeuralCFD.grid.state as st
 
 class grid:
 
-    def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0):
+    def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0, custome_dx=None):
         assert type(ncells) == int
         assert type(L) == float
 
@@ -19,7 +19,7 @@ class grid:
         self.dtype = dtype
 
         # Creates everything with ghost cells
-        self.__createSpatialProperties(custome_S)
+        self.__createSpatialProperties(custome_S, custome_dx)
         self.__createQ()
         self.__createInterfaces()
 
@@ -35,6 +35,7 @@ class grid:
         self.rightInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
 
     def applyBoundaryConditions(self, bc):
+        #TODO: ask for a dict with left boundary and right boundary and treat independently, or ask for bc classes to handle bc on each side
         if bc['type'] == 'periodic':
             # interface 0 : between cell N-1 (left) and cell 0 (right)
             self.leftInterfaces.Q[:, 0] = self.cells.Q[:, -1]
@@ -243,19 +244,35 @@ class grid:
             raise NotImplementedError("Only 'periodic', 'flame1d', 'flame1d_P_out_eq_P_in', 'closed', 'outlets', 'outlets_nonreflective' BC implemented")
 
 
-    def __createSpatialProperties(self, custom_S=1.0):
-        self.dx = self.L / self.ncells
-        self.x = (torch.arange(self.ncells, device=self.device, dtype=self.dtype) + 0.5) * self.dx
-
-        if custom_S is not None:
-            if isinstance(custom_S, (int, float)):
-                self.S = custom_S + torch.zeros(self.ncells + 1, device=self.device, dtype=self.dtype)
+    def __createSpatialProperties(self, custome_S=1.0, custome_dx=None):
+        if custome_dx is not None:
+            print('WARNING: Using a custom_dx is not explicitely physicaly validated')
+            if isinstance(custome_dx, (int, float)):
+                raise ValueError(f'Custom dx must be a torch.Tensor')
             else:
-                if custom_S.dim() != 1:
-                    raise ValueError(f'Custom Surfaces must be a 1D tensor or a float/int but it has dimension {custom_S.dim()}')
-                if len(custom_S) != self.ncells + 1:
-                    raise ValueError(f'Custom Surfaces must be a float/integer or must be a 1D tensor of length {self.ncells+1} but has length {len(custom_S)}')
-                self.S = custom_S
+                if custome_dx.dim() != 1:
+                    raise ValueError(f'Custom dx must be a 1D tensor but it has {custome_dx.dim()} dimensions')
+                if len(custome_dx) != self.ncells:
+                    raise ValueError(f'Custom dx must be a 1D tensor of length {self.ncells} but has length {len(custome_dx)}')
+                self.dx = custome_dx.to(device=self.device, dtype=self.dtype)
+        else:
+            self.dx = self.L / self.ncells + torch.zeros(self.ncells, device=self.device, dtype=self.dtype)
+
+        interfaces = torch.cat((torch.zeros(1, dtype=self.dx.dtype, device=self.dx.device), torch.cumsum(self.dx, dim=0)))
+        self.x = interfaces[:-1] + self.dx / 2
+
+        if custome_S is not None:
+            print('WARNING: Using a custom_S is not explicitely physicaly validated')
+            if isinstance(custome_S, (int, float)):
+                self.S = custome_S + torch.zeros(self.ncells + 1, device=self.device, dtype=self.dtype)
+            else:
+                if custome_S.dim() != 1:
+                    raise ValueError(f'Custom Surfaces must be a 1D tensor or a float/int but it has {custome_S.dim()} dimensions')
+                if len(custome_S) != self.ncells + 1:
+                    raise ValueError(f'Custom Surfaces must be a float/integer or must be a 1D tensor of length {self.ncells+1} but has length {len(custome_S)}')
+                self.S = custome_S.to(device=self.device, dtype=self.dtype)
+
+        self.V = 0.5 * (self.S[1:] + self.S[:-1]) * self.dx
 
     def __createQ(self):
         self.cells = st.state(self.ncells, self.nspecies, self.device, self.dtype)
