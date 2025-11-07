@@ -13,7 +13,7 @@ import gc
 
 class solver:
 
-    def __init__(self, chemistryModel, grid, thermo, boundaryConditions, initialConditions, savingInterval, savingPath=None, reactorModel='cst_p_const_rhou'):
+    def __init__(self, chemistryModel, grid, thermo, boundaryConditions, initialConditions, savingInterval, savingPath=None, reactorModel='cst_p'):
         self.grid = grid
         self.thermo = thermo
         self.rusanovTransport = rus.rusanovFlux()

@@ -2,6 +2,7 @@ import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.solver.POLENE_database_generator as db_gen
 import NeuralCFD.solver.solver_transport_rusanov_cantera_chemestry as s
+import NeuralCFD.solver.solver_transport_rusanov_network_chemestry as snn
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 import cantera as ct
@@ -26,7 +27,7 @@ if __name__ == "__main__":
     torch.set_grad_enabled(False)
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
-    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 1, thermo, device=device, dtype=dtype)
 
     """
     flame_speed = 0.6105775028327183 * 1.05
@@ -72,11 +73,12 @@ if __name__ == "__main__":
 
 
 
-    solver = s.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho')
+    #solver = s.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_p')
+    solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
     #solver = db_gen.solver(grid, thermo, bc, U0, savingPath='data', reactorModel='cst_rho')
     solver.solve(0.0005, 10000, 1e-6, 'test.json')
 
-    post_proc = pp.PostProcessing('data', 'test.json')
+    post_proc = pp.PostProcessing('../data', 'test.json')
     #post_proc.plotSnapchot('T', 0)
     #post_proc.animateField('T')
     post_proc.plotVariable('T', 0)
