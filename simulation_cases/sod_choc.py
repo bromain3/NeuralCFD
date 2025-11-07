@@ -17,37 +17,42 @@ if __name__ == "__main__":
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
+    #torch.cuda.memory._set_allocator_settings()
+    #torch.cuda.memory._get_current_allocator()
+    #torch.cuda.memory.max_memory_reserved()
+    #torch.cuda.memory.max_memory_cached()
+    #torch.cuda.memory.max_memory_allocated()
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
 
-    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
 
 
     bc = {'type': 'closed'}
 
+    P = 101325.0 * 20
+
     rho0 = 1.0 + 0.0 * grid.x
     u0 = 0.0 + 0.0 * grid.x
-    p0 = 101325.0 + 0.0 * grid.x
+    p0 = P + 0.0 * grid.x
     Ys0 = torch.zeros((grid.ncells, grid.nspecies), device=device, dtype=dtype)
     Ys0[:, 0] = 1.0
 
     rho0[len(grid.x)//2:] = 0.125
-    p0[len(grid.x) // 2:] = 0.1 * 101325.0
+    p0[len(grid.x) // 2:] = 0.1 * P
 
     Rspec0 = thermo.thermoProp.R_spec_from_Y(Ys0)
     T0 = p0 / Rspec0 / rho0
 
     U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, thermo)
-    print(p0[0], p0[-1])
     print(T0[0], T0[-1])
+    print(p0[0], p0[-1])
 
-    transportFlux = AUSMPlusFlux()
-    solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../data')
+    transportFlux = rusanovFlux()
+    solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/sod_choc')
+    solver.solve(0.005, 100000, 0.50, 'sod_choc_rus.json')
 
-    solver.solve(0.005, 100000, 0.5, 'sod_choc_custom_S.json')
 
-    post_proc = pp.PostProcessing('../data', 'sod_choc_custom_S.json')
+    post_proc = pp.PostProcessing('', '')
     #post_proc.animateField('rho')
-    post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json', '../data/sod_choc_custom_S.json'], 'rho')
-
-    #5328Mo vram and 0.02205 s of computation time per step before GPU memory optimisation
+    #post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json'], 'rho')

@@ -13,7 +13,6 @@ class DummyTransport(ABC):
     def max_wave_speed(self, interfaces):
         return(torch.abs(interfaces.u) + interfaces.a)
 
-
     def transport(self, dt, grid, bc):
         F_int = self.numerical_flux(grid.leftInterfaces, grid.rightInterfaces)
         grid.updateCellsState(grid.cells.Q - dt * ((grid.S[1:] * F_int[:, 1:] - grid.S[:-1] * F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)

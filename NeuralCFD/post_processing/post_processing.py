@@ -2,15 +2,8 @@ import json
 import os
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import matplotlib as mpl
-from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-from matplotlib.ticker import LogFormatter, ScalarFormatter
 import numpy as np
-from scipy.interpolate import interp1d, PchipInterpolator
-from scipy.integrate import trapezoid, simpson
-import re
-from joblib import Parallel, delayed
-from tqdm import tqdm
+
 
 class PostProcessing:
 
