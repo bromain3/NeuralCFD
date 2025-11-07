@@ -23,7 +23,7 @@ if __name__ == "__main__":
     #torch.cuda.memory.max_memory_cached()
     #torch.cuda.memory.max_memory_allocated()
 
-    thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
+    thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../../input_data/gri30.yaml', device=device, dtype=dtype)
 
     grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     print(p0[0], p0[-1])
 
     transportFlux = rusanovFlux()
-    solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/sod_choc')
+    solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../../simulation_results/sod_choc')
     solver.solve(0.005, 100000, 0.50, 'sod_choc_rus.json')
 
 
