@@ -1,9 +1,10 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
-import NeuralCFD.solver.solver_transport_rusanov as solv_rus
-import NeuralCFD.solver.solver_transport_AUSM as solv_AUSM
-import NeuralCFD.solver.solver_transport_AUSMPlus as solv_AUSMPlus
-import NeuralCFD.solver.solver_transport_AUSMPlusUp as solv_AUSMPlusUp
+import NeuralCFD.solver.solver_transport as solv_trans
+from NeuralCFD.transport.rusanov import rusanovFlux
+from NeuralCFD.transport.AUSM import AUSMFlux
+from NeuralCFD.transport.AUSMPlus import AUSMPlusFlux
+from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 
@@ -40,8 +41,8 @@ if __name__ == "__main__":
     print(p0[0], p0[-1])
     print(T0[0], T0[-1])
 
-
-    solver = solv_rus.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='../data')
+    transportFlux = AUSMPlusFlux()
+    solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../data')
 
     solver.solve(0.005, 100000, 0.5, 'sod_choc_custom_S.json')
 

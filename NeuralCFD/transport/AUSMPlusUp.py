@@ -1,6 +1,7 @@
 import torch
+from NeuralCFD.transport.DummyTransport import DummyTransport
 
-class AUSMPlusUpFlux:
+class AUSMPlusUpFlux(DummyTransport):
 
     alpha = 3.0 / 16.0
     # Constants for low-Mach corrections
@@ -49,42 +50,25 @@ class AUSMPlusUpFlux:
             raise ValueError("direction must be 'plus' or 'minus'")
         return Pp
 
+    def numerical_flux(self, leftInterfaces, rightInterfaces):
 
-    def add_source_terms(self, grid):
-        return(0)
-
-    def max_wave_speed(self, interfaces):
-        return(torch.abs(interfaces.u) + interfaces.a)
-
-    def AUSMPlusUp_flux(self, grid):
-        L, R = grid.leftInterfaces, grid.rightInterfaces
-
-        MLp = self.split_Mach(L, 'plus')
-        MRm = self.split_Mach(R, 'minus')
-        PLp = self.split_Pressure(L, 'plus')
-        PRm = self.split_Pressure(R, 'minus')
+        MLp = self.split_Mach(leftInterfaces, 'plus')
+        MRm = self.split_Mach(rightInterfaces, 'minus')
+        PLp = self.split_Pressure(leftInterfaces, 'plus')
+        PRm = self.split_Pressure(rightInterfaces, 'minus')
 
         # Diffusion corrections
-        delta_p = R.p - L.p
-        delta_u = R.u - L.u
+        delta_p = rightInterfaces.p - leftInterfaces.p
+        delta_u = rightInterfaces.u - leftInterfaces.u
 
-        M_half = MLp + MRm - AUSMPlusUpFlux.Kp * delta_p / (L.rho * L.a ** 2)
-        p_half = PLp + PRm - AUSMPlusUpFlux.Ku * M_half * delta_u * L.rho * L.a
+        M_half = MLp + MRm - AUSMPlusUpFlux.Kp * delta_p / (leftInterfaces.rho * leftInterfaces.a ** 2)
+        p_half = PLp + PRm - AUSMPlusUpFlux.Ku * M_half * delta_u * leftInterfaces.rho * leftInterfaces.a
 
-        FcL = self.convective_flux(L)
-        FcR = self.convective_flux(R)
-        n = self.pressure_direction(L)
+        FcL = self.convective_flux(leftInterfaces)
+        FcR = self.convective_flux(rightInterfaces)
+        n = self.pressure_direction(leftInterfaces)  # the chosen interface does not matter, it is just for output size
 
         F = M_half / 2 * (FcL + FcR) - torch.abs(M_half) * (FcR - FcL) + p_half * n
+        #TODO: check if adding p just on the right row is more efficient instead of adding a full vector
 
-        sL = self.max_wave_speed(L)
-        sR = self.max_wave_speed(R)
-        smax = torch.maximum(sL, sR)
-
-        return F, torch.max(smax)
-
-    def transport(self, dt, grid, bc):
-        F_int, smax_global = self.AUSMPlusUp_flux(grid)
-        grid.updateCellsState(grid.cells.Q - dt * ((grid.S[1:] * F_int[:, 1:] - grid.S[:-1] * F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)
-
-        return(smax_global)
+        return F

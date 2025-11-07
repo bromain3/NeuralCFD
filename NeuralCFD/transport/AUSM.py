@@ -1,6 +1,7 @@
 import torch
+from NeuralCFD.transport.DummyTransport import DummyTransport
 
-class AUSMFlux:
+class AUSMFlux(DummyTransport):
 
     def convective_flux(self, interface):
         # conservative fluxes: (it could be expressed with the conserved quantites vector and p)
@@ -42,30 +43,14 @@ class AUSMFlux:
             raise ValueError(f'Unknown direction {direction} for split pressure computation')
         return splited_P
 
-
-    def add_source_terms(self, grid):
-        return(0)
-
-    def max_wave_speed(self, interfaces):
-        return(torch.abs(interfaces.u) + interfaces.a)
-
-    def AUSM_flux(self, grid):
+    def numerical_flux(self, leftInterfaces, rightInterfaces):
         # UL, UR are states at left and right of interface (shape: nvars)
         # We will vectorize this in the transport step.
-        M_half = self.split_Mach(grid.leftInterfaces, 'plus') + self.split_Mach(grid.rightInterfaces, 'minus')
-        p_half = self.split_Pressure(grid.leftInterfaces, 'plus') + self.split_Pressure(grid.rightInterfaces, 'minus')
-        FcL = self.convective_flux(grid.leftInterfaces)
-        FcR = self.convective_flux(grid.rightInterfaces)
-        n = self.pressure_direction(grid.leftInterfaces)  # the chosen interface does not matter, it is just for output size
+        M_half = self.split_Mach(leftInterfaces, 'plus') + self.split_Mach(rightInterfaces, 'minus')
+        p_half = self.split_Pressure(leftInterfaces, 'plus') + self.split_Pressure(rightInterfaces, 'minus')
+        FcL = self.convective_flux(leftInterfaces)
+        FcR = self.convective_flux(rightInterfaces)
+        n = self.pressure_direction(leftInterfaces)  # the chosen interface does not matter, it is just for output size
         F = M_half / 2 * (FcL + FcR) - torch.abs(M_half) * (FcR - FcL) + p_half * n
-
-        sL = self.max_wave_speed(grid.leftInterfaces)
-        sR = self.max_wave_speed(grid.rightInterfaces)
-        smax = torch.maximum(sL, sR)
-        return(F, torch.max(smax))
-
-    def transport(self, dt, grid, bc):
-        F_int, smax_global = self.AUSM_flux(grid)
-        grid.updateCellsState(grid.cells.Q - dt * ((grid.S[1:] * F_int[:, 1:] - grid.S[:-1] * F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)
-
-        return(smax_global)
+        #TODO: check if adding p just on the right row is more efficient instead of adding a full vector
+        return(F)

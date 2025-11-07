@@ -1,6 +1,7 @@
 import torch
+from NeuralCFD.transport.DummyTransport import DummyTransport
 
-class rusanovFlux:
+class rusanovFlux(DummyTransport):
 
     def flux(self, interfaces):
         # conservative fluxes: (it could be expressed with the conserved quantites vector and p)
@@ -11,25 +12,13 @@ class rusanovFlux:
         F[3:3 + interfaces.nspecies, :] = interfaces.Ys.T * interfaces.rho * interfaces.u
         return(F)
 
-    def add_source_terms(self, grid):
-        return(0)
-
-    def max_wave_speed(self, interfaces):
-        return(torch.abs(interfaces.u) + interfaces.a)
-
-    def rusanov_flux(self, grid):
+    def numerical_flux(self, leftInterfaces, rightInterfaces):
         # UL, UR are states at left and right of interface (shape: nvars)
         # We will vectorize this in the transport step.
-        FL = self.flux(grid.leftInterfaces)
-        FR = self.flux(grid.rightInterfaces)
-        sL = self.max_wave_speed(grid.leftInterfaces)
-        sR = self.max_wave_speed(grid.rightInterfaces)
+        FL = self.flux(leftInterfaces)
+        FR = self.flux(rightInterfaces)
+        sL = self.max_wave_speed(leftInterfaces)
+        sR = self.max_wave_speed(rightInterfaces)
         smax = torch.maximum(sL, sR)
         # Rusanov: F = 0.5*(FL+FR) - 0.5*smax*(UR-UL)
-        return(0.5 * (FL + FR) - 0.5 * smax * (grid.rightInterfaces.Q - grid.leftInterfaces.Q), torch.max(smax))
-
-    def transport(self, dt, grid, bc):
-        F_int, smax_global = self.rusanov_flux(grid)
-        grid.updateCellsState(grid.cells.Q - dt * ((grid.S[1:] * F_int[:, 1:] - grid.S[:-1] * F_int[:, :-1]) / grid.dx + self.add_source_terms(grid)), bc)
-
-        return(smax_global)
+        return(0.5 * (FL + FR) - 0.5 * smax * (rightInterfaces.Q - leftInterfaces.Q))
