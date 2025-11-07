@@ -70,32 +70,37 @@ if __name__ == "__main__":
     sim_data = loadData('../../simulation_results/sod_choc', 'sod_choc_rus.json')
 
     func_field_cedre_for_interp = interp1d(t_cedre, field_cedre, axis=0, kind='linear', bounds_error=True)
+    func_field_self_for_interp = interp1d(sim_data['t'], sim_data[value], axis=0, kind='linear', bounds_error=True)
 
+
+
+    plot_times = np.linspace(sim_data['t'][0], sim_data['t'][-1], len(sim_data['t']))
     # Interpolation sur les temps de la première simulation
-    field_cedre_interp = func_field_cedre_for_interp(sim_data['t'])
+    field_cedre_interp = func_field_cedre_for_interp(plot_times)
+    field_self_interp = func_field_self_for_interp(plot_times)
 
     fig, ax = plt.subplots()
     graph_cedre = ax.plot(x, field_cedre_interp[0])[0]
-    graph = ax.plot(sim_data['x'], sim_data[value][0])[0]
+    graph = ax.plot(sim_data['x'], field_self_interp[0])[0]
 
-    min_y = min([min(i) for i in sim_data[value]] + [min(i) for i in field_cedre_interp])
-    max_y = max([max(i) for i in sim_data[value]] + [max(i) for i in field_cedre_interp])
+    min_y = min([min(i) for i in field_self_interp] + [min(i) for i in field_cedre_interp])
+    max_y = max([max(i) for i in field_self_interp] + [max(i) for i in field_cedre_interp])
     delta_y = max_y - min_y
     blank_proportion = 0.05
     plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
-    time = sim_data['t'][0]
+    time = plot_times
     plt.title(value + f' | t = {time}')
 
 
     def update(frame):
         # creating a new graph or updating the graph
-        graph.set_ydata(sim_data[value][frame])
+        graph.set_ydata(field_self_interp[frame])
         graph_cedre.set_ydata(field_cedre_interp[frame])
-        time = sim_data['t'][frame]
+        time = plot_times[frame]
         plt.title(value + f' | t = {time:.6e}')
 
 
-    anim = FuncAnimation(fig, update, frames=len(sim_data['t']), interval=100)
+    anim = FuncAnimation(fig, update, frames=len(plot_times), interval=10)
     #plt.show()  # TODO: remove what is under
     plt.show(block=False)
     input("Animation terminée — appuie sur Entrée pour continuer...")
