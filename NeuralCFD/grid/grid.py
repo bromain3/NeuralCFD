@@ -5,6 +5,7 @@ import NeuralCFD.grid.state as st
 class grid:
 
     def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0, custome_dx=None):
+        #TODO: implement a varying mesh that will affect the transport solver
         assert type(ncells) == int
         assert type(L) == float
 
@@ -24,14 +25,15 @@ class grid:
         self.__createInterfaces()
 
     def updateCellsState(self, Q, bc, usePrevT=True, interpolationMethode='1st_order', interfaceThermoInterp=False):
+        #TODO: implement interpolationMethode and interfaceTherom interp
         # assigne new Q (and internal recompute of thermo props)
         self.cells.updateQ(Q, self.thermo, usePrevT=usePrevT)
 
         # update interior interfaces (and internal recompute of thermo props OR extrapolation for computation efficiency)
-        self.leftInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 0:self.ncells-1]
-        self.rightInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 1:self.ncells]
+        self.leftInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 0:self.ncells-1] # first order interfaces computation
+        self.rightInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 1:self.ncells] # first order interfaces computation
         self.applyBoundaryConditions(bc)
-        self.leftInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
+        self.leftInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT) #TODO: maybe differenciate classes for interfaces and cell centers to store exactly the usefull values. and interpolate also thermo props even if it means small inconstiencies to prevent from calling too much the thermo solver
         self.rightInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
 
     def applyBoundaryConditions(self, bc):
@@ -258,8 +260,8 @@ class grid:
         else:
             self.dx = self.L / self.ncells + torch.zeros(self.ncells, device=self.device, dtype=self.dtype)
 
-        interfaces = torch.cat((torch.zeros(1, dtype=self.dx.dtype, device=self.dx.device), torch.cumsum(self.dx, dim=0)))
-        self.x = interfaces[:-1] + self.dx / 2
+        self.interfaces = torch.cat((torch.zeros(1, dtype=self.dx.dtype, device=self.dx.device), torch.cumsum(self.dx, dim=0))) #TODO: if we want to save storage, we could recompute that value in ALE requiring it
+        self.x = self.interfaces[:-1] + self.dx / 2
 
         if custome_S is not None:
             print('WARNING: Using a custom_S is not explicitely physicaly validated')

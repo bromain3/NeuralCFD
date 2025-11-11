@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
 
 
-    ncells = 2000
+    ncells = 200
     L = 1.0
     x = torch.linspace(0, L, ncells+1)
     #A = 1 + 2.2 * (x - L/2) ** 2

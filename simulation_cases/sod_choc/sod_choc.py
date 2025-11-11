@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../../input_data/gri30.yaml', device=device, dtype=dtype)
 
-    grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
 
 
     bc = {'type': 'closed'}
@@ -50,9 +50,9 @@ if __name__ == "__main__":
 
     transportFlux = rusanovFlux()
     solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../../simulation_results/sod_choc')
-    solver.solve(0.005, 100000, 0.50, 'sod_choc_rus_full_dx.json')
+    #solver.solve(0.005, 100000, 0.95, 'sod_choc_rus_full_dx.json')
 
 
-    post_proc = pp.PostProcessing('', '')
-    #post_proc.animateField('rho')
+    post_proc = pp.PostProcessing('../../simulation_results/sod_choc', 'sod_choc_rus_full_dx.json')
+    post_proc.animateField('rho')
     #post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json'], 'rho')

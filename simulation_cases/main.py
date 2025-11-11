@@ -1,8 +1,7 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.solver.POLENE_database_generator as db_gen
-import NeuralCFD.solver.solver_transport_rusanov_cantera_chemestry as s
-import NeuralCFD.solver.solver_transport_rusanov_network_chemestry as snn
+import NeuralCFD.solver.solver_transport_chemistry as s
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 import cantera as ct
@@ -74,14 +73,14 @@ if __name__ == "__main__":
 
 
     #solver = s.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_p')
-    solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
+    #solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
     #solver = db_gen.solver(grid, thermo, bc, U0, savingPath='data', reactorModel='cst_rho')
-    solver.solve(0.0005, 10000, 1e-6, 'test.json')
+    #solver.solve(0.0005, 10000, 1e-6, 'test.json')
 
-    post_proc = pp.PostProcessing('../data', 'test.json')
+    post_proc = pp.PostProcessing('../simulation_results/Flux_comparison', 'sod_choc_rus.json')
     #post_proc.plotSnapchot('T', 0)
     #post_proc.animateField('T')
-    post_proc.plotVariable('T', 0)
+    post_proc.plotVariables(['T', 'P'], 0)
     #post_proc.animateField('P')
     #post_proc.plotVariable('P', 0)
     #post_proc.animateField('Y_C2H2')

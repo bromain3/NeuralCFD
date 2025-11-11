@@ -1,6 +1,10 @@
 import torch
 from abc import ABC, abstractmethod
 
+
+#TODO: try a monolithic solver where operators act as source terms
+#TODO: add a function to return the max allowable time step as with geometric source terms, the CFL condition should not apply. the CFL condition must be hand derived
+#TODO: add a model for curvilinear 1D solver for having the most complet solver
 class DummyTransport(ABC):
 
     @abstractmethod

@@ -1,6 +1,7 @@
 import NeuralCFD.utilities_functions.primitive_converter as primitive_converter
 from abc import ABC, abstractmethod
 
+#TODO: take into account the section/dx variation. (if we have a mooving mesh, it will appear as a separate strang splitting operator or in the transport methodes, but no change to the chemistry solver)
 class DummyChemistry(ABC):
 
     @abstractmethod

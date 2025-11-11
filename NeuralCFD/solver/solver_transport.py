@@ -39,7 +39,7 @@ class solver(DummySolver):
         # load self.* that are used in the loop to be a bit faster
         while self.t < tmax and self.step < maxiter:
             smax = torch.max(self.transport.max_wave_speed(self.grid.cells)).item()
-            dt_cfl = CFL * torch.min(self.grid.dx).item() / (smax + 1e-12)
+            dt_cfl = CFL * torch.min(self.grid.dx).item() / (smax + 1e-12) # TODO: This dt_cfl is overestimated. it should be recomputed internaly as dt_loc = dxi/si so we should take min(dt_loc) and not min(num) / max(denom)
             dt = min(dt_cfl, tmax - self.t)
 
             self.oneStep(dt)
