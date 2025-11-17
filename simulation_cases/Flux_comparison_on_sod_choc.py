@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
 
-    grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
 
 
     bc = {'type': 'closed'}

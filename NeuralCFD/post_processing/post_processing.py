@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
+from scipy.interpolate import interp1d
 
 #TODO: plot (animated or not) a subpolt with rho, T, P, u and the geometry with a colormap plot to show dx
 
@@ -85,13 +86,20 @@ class PostProcessing:
         #plt.close(fig)
 
 
-    def plotVariable(self, variable, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
+    def plotVariables(self, variables, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
-        var = np.array(self.simData[variable])
-        plt.plot(self.simData['t'], var[:, cellidx])
-        plt.xlabel('t')
-        plt.ylabel(variable)
+        if isinstance(variables, str) or (isinstance(variables, list) and len(variables) == 1):
+            fig, ax = plt.subplots()
+            axs = [ax]
+        else:
+            fig, axs = plt.subplots(nrows=len(variables), ncols=1)
+        for n, var in enumerate(variables):
+            data = np.array(self.simData[var])
+            axs[n].plot(self.simData['t'], data[:, cellidx])
+            axs[n].set_xlabel('t')
+            axs[n].set_ylabel(var)
+
         plt.show()
 
     def compareFieldsEvolution(self, fields, variable, cellidx):
