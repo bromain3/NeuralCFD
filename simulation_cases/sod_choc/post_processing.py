@@ -67,7 +67,7 @@ if __name__ == "__main__":
     t_cedre, field_cedre = readCEDREDatabase(r'/stck/bromain/cedre1d/sod_choc/archive_CHARME_tube1D_inst.cgns', 'tube1D', 'champ', value_cedre)
     x, y, z = readCEDREDatabase(r'/stck/bromain/cedre1d/sod_choc/archive_CHARME_tube1D_geom.cgns', 'tube1D', 'geom')
 
-    sim_data = loadData('../../simulation_results/sod_choc', 'sod_choc_rus_full_dx.json')
+    sim_data = loadData('../../simulation_results/sod_choc', 'sod_choc_rus_MUSCL.json')
 
     func_field_cedre_for_interp = interp1d(t_cedre, field_cedre, axis=0, kind='linear', bounds_error=True)
     func_field_self_for_interp = interp1d(sim_data['t'], sim_data[value], axis=0, kind='linear', bounds_error=True)

@@ -1,6 +1,7 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.solver.solver_transport as solv_trans
+from NeuralCFD.interpolation.MUSCL import MUSCL, minmod
 from NeuralCFD.transport.rusanov import rusanovFlux
 from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlus import AUSMPlusFlux
@@ -13,7 +14,7 @@ import torch
 
 if __name__ == "__main__":
 
-    device = 'cuda'
+    device = 'cpu'
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
@@ -25,10 +26,18 @@ if __name__ == "__main__":
 
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../../input_data/gri30.yaml', device=device, dtype=dtype)
 
-    grid = NeuralCFD.grid.grid.grid(1.0, 200, thermo, device=device, dtype=dtype)
-
+    #interpMethode = MUSCL(minmod)
+    #grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, interpolationMethode=interpMethode, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 2000, thermo, device=device, dtype=dtype)
 
     bc = {'type': 'closed'}
+
+
+
+
+
+
+
 
     P = 101325.0 * 20
 
@@ -48,11 +57,22 @@ if __name__ == "__main__":
     print(T0[0], T0[-1])
     print(p0[0], p0[-1])
 
+
+
+
+
+
+
+
+
+
+
+
     transportFlux = rusanovFlux()
     solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../../simulation_results/sod_choc')
-    #solver.solve(0.005, 100000, 0.95, 'sod_choc_rus_full_dx.json')
+    #solver.solve(0.005, 100000, 0.50, 'sod_choc_rus_MUSCL.json')
 
 
-    post_proc = pp.PostProcessing('../../simulation_results/sod_choc', 'sod_choc_rus_full_dx.json')
-    post_proc.animateField('rho')
-    #post_proc.animateFields(['../data/sod_choc_rus.json', '../data/sod_choc_AUSM.json', '../data/sod_choc_AUSM+.json', '../data/sod_choc_AUSM+up.json'], 'rho')
+    post_proc = pp.PostProcessing(r'/stck/bromain/Documents/NeuralCFD/simulation_results/nozzle', 'res.json')
+    post_proc.animateField('T')
+    #post_proc.animateFields(['../../simulation_results/Flux_comparison/sod_choc_rus.json', '../../simulation_results/Flux_comparison/sod_choc_AUSM.json', '../../simulation_results/Flux_comparison/sod_choc_AUSM+.json', '../../simulation_results/Flux_comparison/sod_choc_AUSM+up.json'], 'rho')

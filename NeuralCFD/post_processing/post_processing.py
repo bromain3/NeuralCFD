@@ -79,7 +79,7 @@ class PostProcessing:
             time = self.simData['t'][frame]
             plt.title(variable + f' | t = {time:.6e}')
 
-        anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=80)
+        anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=10)
         plt.show() #TODO: remove what is under
         #plt.show(block=False)
         #input("Animation terminée — appuie sur Entrée pour continuer...")

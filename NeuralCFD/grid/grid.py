@@ -5,7 +5,7 @@ from NeuralCFD.interpolation.firstOrderInterp import FirstOrderInterpolation
 
 class grid:
 
-    def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0, custome_dx=None):
+    def __init__(self, L, ncells, thermo, device, dtype, interpolationMethode=FirstOrderInterpolation(), custome_S=1.0, custome_dx=None):
         #TODO: implement a varying mesh that will affect the transport solver
         assert type(ncells) == int
         assert type(L) == float
