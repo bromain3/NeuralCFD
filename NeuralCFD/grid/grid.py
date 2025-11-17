@@ -1,10 +1,11 @@
 import torch
 
 import NeuralCFD.grid.state as st
+from NeuralCFD.interpolation.firstOrderInterp import FirstOrderInterpolation
 
 class grid:
 
-    def __init__(self, L, ncells, thermo, device, dtype, custome_S=1.0, custome_dx=None):
+    def __init__(self, L, ncells, thermo, device, dtype, interpolationMethode=FirstOrderInterpolation(), custome_S=1.0, custome_dx=None):
         assert type(ncells) == int
         assert type(L) == float
 
@@ -18,6 +19,8 @@ class grid:
         self.device = device
         self.dtype = dtype
 
+        self.interpolationMethode = interpolationMethode
+
         # Creates everything with ghost cells
         self.__createSpatialProperties(custome_S, custome_dx)
         self.__createQ()
@@ -28,8 +31,9 @@ class grid:
         self.cells.updateQ(Q, self.thermo, usePrevT=usePrevT)
 
         # update interior interfaces (and internal recompute of thermo props OR extrapolation for computation efficiency)
-        self.leftInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 0:self.ncells-1]
-        self.rightInterfaces.Q[:, 1:self.ncells] = self.cells.Q[:, 1:self.ncells]
+        #TODO: implement possibility to interpolate natural quantities instead of recomputing theme
+        self.interpolationMethode.interpolate(self.leftInterfaces, self.rightInterfaces, self.cells)
+
         self.applyBoundaryConditions(bc)
         self.leftInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
         self.rightInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
