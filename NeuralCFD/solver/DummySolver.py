@@ -4,7 +4,7 @@ import json
 
 class DummySolver(ABC):
 
-    def __init__(self, grid, thermo, boundaryConditions, initialConditions, savingInterval, savingPath=None):
+    def __init__(self, grid, thermo, boundaryConditions, initialConditions, savingInterval, savingPath=None, initialGridTemperature=None):
         self.grid = grid
         self.thermo = thermo
 
@@ -15,6 +15,7 @@ class DummySolver(ABC):
 
         self.boundaryConditions = boundaryConditions
         self.initialConditions = initialConditions
+        self.initialGridTemperature = initialGridTemperature
 
         self.history = {'t': [], 'T': [], 'rho': [], 'P': [], 'u': []}
         for spe in self.thermo.thermoProp.species:
@@ -22,8 +23,13 @@ class DummySolver(ABC):
 
         self.savingPath = savingPath
 
+
     def setIntialConditions(self):
-        self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=False) # delet initial conditions to gain disk space ?
+        if self.initialGridTemperature is not None:
+            self.grid.cells.T = self.initialGridTemperature
+            self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=True)
+        else:
+            self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=False) # delet initial conditions to gain disk space ?
 
     def save(self):
         self.history['t'].append(self.t)

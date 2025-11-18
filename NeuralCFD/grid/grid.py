@@ -27,16 +27,16 @@ class grid:
         self.__createQ()
         self.__createInterfaces()
 
-    def updateCellsState(self, Q, bc, usePrevT=True, interpolationMethode='1st_order', interfaceThermoInterp=False):
+    def updateCellsState(self, Q, bc, usePrevT=True, interfaceThermoInterp=False):
         #TODO: implement interpolationMethode and interfaceTherom interp
         # assigne new Q (and internal recompute of thermo props)
         self.cells.updateQ(Q, self.thermo, usePrevT=usePrevT)
-
         # update interior interfaces (and internal recompute of thermo props OR extrapolation for computation efficiency)
         #TODO: implement possibility to interpolate natural quantities instead of recomputing theme
         self.interpolationMethode.interpolate(self.leftInterfaces, self.rightInterfaces, self.cells)
 
         self.applyBoundaryConditions(bc)
+
         self.leftInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT) #TODO: maybe differenciate classes for interfaces and cell centers to store exactly the usefull values. and interpolate also thermo props even if it means small inconstiencies to prevent from calling too much the thermo solver
         self.rightInterfaces.updateThermoFromQ(self.thermo, usePrevT=usePrevT)
 

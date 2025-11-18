@@ -54,10 +54,10 @@ class PostProcessing:
             plt.title(variable + f' | t = {time:.6e}')
 
         anim = FuncAnimation(fig, update, frames=len(simData[0]['t']), interval=200)
-        plt.show() #TODO: remove what is under
-        #plt.show(block=False)
-        #input("Animation terminée — appuie sur Entrée pour continuer...")
-        #plt.close(fig)
+        #plt.show() #TODO: remove what is under
+        plt.show(block=False)
+        input("Animation terminée — appuie sur Entrée pour continuer...")
+        plt.close(fig)
 
 
     def animateField(self, variable):
@@ -80,10 +80,10 @@ class PostProcessing:
             plt.title(variable + f' | t = {time:.6e}')
 
         anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=10)
-        plt.show() #TODO: remove what is under
-        #plt.show(block=False)
-        #input("Animation terminée — appuie sur Entrée pour continuer...")
-        #plt.close(fig)
+        #plt.show() #TODO: remove what is under
+        plt.show(block=False)
+        input("Animation terminée — appuie sur Entrée pour continuer...")
+        plt.close(fig)
 
 
     def plotVariables(self, variables, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
