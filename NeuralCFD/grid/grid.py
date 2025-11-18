@@ -45,10 +45,8 @@ class grid:
         if bc['type'] == 'periodic':
             # interface 0 : between cell N-1 (left) and cell 0 (right)
             self.leftInterfaces.Q[:, 0] = self.cells.Q[:, -1]
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
             # interface N : between cell N-1 (left) and cell 0 (right) as well (periodic wrap)
             # here we set the ghost on the right of the last cell equal to the first cell (periodic)
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             self.rightInterfaces.Q[:, -1] = self.cells.Q[:, 0]
         elif bc['type'] == 'flame1d_P_out_eq_P_in':
             if 'inflow_state' not in bc.keys():
@@ -58,11 +56,9 @@ class grid:
             # left boundary (inflow) : ghost cell fixed to inflow state
             # left boundary (interface 0): left=ghost(inflow), right=cell 0
             self.leftInterfaces.Q[:, 0] = inflow_state
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
 
             # right boundary (outflow) : ghost cell = last interior cell (zero-gradient)
             # right boundary (interface N): left = last cell (N-1), right = ghost = copy of last cell => zero gradient
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             self.rightInterfaces.Q[:, -1] = self.cells.Q[:, -1]
         elif bc['type'] == 'flame1d':
             if 'inflow_state' not in bc.keys():
@@ -75,11 +71,9 @@ class grid:
             # left boundary (inflow) : ghost cell fixed to inflow state
             # left boundary (interface 0): left=ghost(inflow), right=cell 0
             self.leftInterfaces.Q[:, 0] = inflow_state
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
 
             # right boundary (outflow) : ghost cell = last interior cell (zero-gradient)
             # right boundary (interface N): left = last cell (N-1), right = ghost = copy of last cell => zero gradient
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             Q_out = torch.zeros_like(self.cells.Q[:, -1])
             Rspec = self.thermo.thermoProp.R_spec_from_Y(self.cells.Ys[-1])
             rho = P_out / Rspec / self.cells.T[-1]
@@ -91,13 +85,11 @@ class grid:
         elif bc['type'] == 'closed':
             # Left boundary (mur à gauche)
             self.leftInterfaces.Q[:, 0] = self.cells.Q[:, 0]
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
             # inversion de la vitesse (rho*u)
             self.leftInterfaces.Q[1, 0] *= -1
             #self.rightInterfaces.Q[1, 0] *= -1
 
             # Right boundary (mur à droite)
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             self.rightInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             # inversion de la vitesse (rho*u)
             #self.leftInterfaces.Q[1, -1] *= -1
@@ -106,28 +98,23 @@ class grid:
             # left boundary (outflow) : ghost cell fixed to inflow state
             # left boundary (interface 0): left=ghost(inflow), right=cell 0
             self.leftInterfaces.Q[:, 0] = self.cells.Q[:, 0]
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
 
             # right boundary (outflow) : ghost cell = last interior cell (zero-gradient)
             # right boundary (interface N): left = last cell (N-1), right = ghost = copy of last cell => zero gradient
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             self.rightInterfaces.Q[:, -1] = self.cells.Q[:, -1]
         elif bc['type'] == 'symetric':
             # copie miroir : rho et énergie égaux, vitesse inversée
             Q_sym = torch.clone(self.cells.Q[:, 0])
             Q_sym[1] = -Q_sym[1]  # inversion de la vitesse
             self.leftInterfaces.Q[:, 0] = Q_sym
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
             # right boundary (outflow) : ghost cell = last interior cell (zero-gradient)
             # right boundary (interface N): left = last cell (N-1), right = ghost = copy of last cell => zero gradient
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             self.rightInterfaces.Q[:, -1] = self.cells.Q[:, -1]
         elif bc['type'] == 'outlets':
             if 'P_out' not in bc.keys():
                 raise ValueError("Need P_out for bc='outlets'")
             P_out = bc['P_out']
 
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
             Q_out_right = torch.zeros_like(self.cells.Q[:, -1])
             Rspec = self.thermo.thermoProp.R_spec_from_Y(self.cells.Ys[-1])
             rho = P_out / Rspec / self.cells.T[-1]
@@ -137,7 +124,6 @@ class grid:
             Q_out_right[3:3 + self.nspecies] = rho * self.cells.Q[3:3 + self.nspecies, -1] / self.cells.Q[0, -1]
             self.rightInterfaces.Q[:, -1] = Q_out_right
 
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
             Q_out_left = torch.zeros_like(self.cells.Q[:, 0])
             Rspec = self.thermo.thermoProp.R_spec_from_Y(self.cells.Ys[0])
             rho = P_out / Rspec / self.cells.T[0]
@@ -204,7 +190,6 @@ class grid:
             Q_out[3:3 + ns] = rho_out * Ys_in
 
             self.rightInterfaces.Q[:, -1] = Q_out
-            self.leftInterfaces.Q[:, -1] = self.cells.Q[:, -1]
 
             # ======================================================
             # === Sortie gauche (x = 0) ============================
@@ -243,7 +228,6 @@ class grid:
             Q_out_l[3:3 + ns] = rho_out_l * Ys_in_l
 
             self.leftInterfaces.Q[:, 0] = Q_out_l
-            self.rightInterfaces.Q[:, 0] = self.cells.Q[:, 0]
 
 
         else:
