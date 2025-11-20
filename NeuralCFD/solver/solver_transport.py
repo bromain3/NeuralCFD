@@ -9,7 +9,7 @@ import gc
 
 class solver(DummySolver):
 
-    def __init__(self, grid, thermo, transportSolver, boundaryConditions, initialConditions, savingInterval, savingPath=None, initialGridTemperature=False):
+    def __init__(self, grid, thermo, transportSolver, boundaryConditions, initialConditions, savingInterval, savingPath=None, initialGridTemperature=None):
         DummySolver.__init__(self, grid, thermo, boundaryConditions, initialConditions, savingInterval, savingPath=savingPath, initialGridTemperature=initialGridTemperature)
 
         self.transport = transportSolver
