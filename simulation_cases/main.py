@@ -1,6 +1,8 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.solver.POLENE_database_generator as db_gen
+from NeuralCFD.transport.rusanov import rusanovFlux
+from NeuralCFD.chemestry.canteraChem import canteraChem
 import NeuralCFD.solver.solver_transport_chemistry as s
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
@@ -20,13 +22,15 @@ if __name__ == "__main__":
         Y = {'CH4': phi * mch4_mo2_st * 2 * MMO2, 'O2': 2 * MMO2, 'N2': 2 * MMO2 * O2_N2}
         return (Y)
 
-    device = 'cpu'
+    device = 'cuda:1'
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
 
-    thermo = NeuralCFD.thermo.vectorized_thermo.thermo(r'../input_data/gri30.yaml', device=device, dtype=dtype)
-    grid = NeuralCFD.grid.grid.grid(1.0, 1, thermo, device=device, dtype=dtype)
+    ncells = 100_000
+    th_file = r'../input_data/gri30.yaml'
+    thermo = NeuralCFD.thermo.vectorized_thermo.thermo(th_file, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0, 100_000, thermo, device=device, dtype=dtype)
 
     """
     flame_speed = 0.6105775028327183 * 1.05
@@ -71,13 +75,14 @@ if __name__ == "__main__":
 
 
 
-
-    #solver = s.solver(grid, thermo, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_p')
+    transportFlux = rusanovFlux()
+    chem = canteraChem(th_file, ncells)
+    solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
     #solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
     #solver = db_gen.solver(grid, thermo, bc, U0, savingPath='data', reactorModel='cst_rho')
-    #solver.solve(0.0005, 10000, 1e-6, 'test.json')
+    solver.solve(0.0005, 10000, 1e-6, 'test.json')
 
-    post_proc = pp.PostProcessing('../simulation_results/Flux_comparison', 'sod_choc_rus.json')
+    post_proc = pp.PostProcessing('../simulation_results/test', 'chem.json')
     #post_proc.plotSnapchot('T', 0)
     #post_proc.animateField('T')
     post_proc.plotVariables(['T', 'P'], 0)

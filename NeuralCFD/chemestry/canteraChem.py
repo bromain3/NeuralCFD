@@ -130,7 +130,6 @@ class canteraChem(DummyChemistry):
                 P_new[i] = self.gas.P
 
         elif model == 'cst_p': #TODO: validate this model because it seems to be wrong
-            print('WARNING: This model is not validated')
             # --- Modèle à pression constante ---
             # On considère la pression initiale du gaz dans chaque cellule comme la pression constante.
             # Pour chaque cellule on intègre T et Y sur [0, dt] en imposant p constant via gas.TPY = T, p, Y.

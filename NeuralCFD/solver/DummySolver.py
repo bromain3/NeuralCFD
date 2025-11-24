@@ -29,7 +29,7 @@ class DummySolver(ABC):
             self.grid.cells.T = self.initialGridTemperature
             self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=True)
         else:
-            self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=False) # delet initial conditions to gain disk space ?
+            self.grid.updateCellsState(self.initialConditions, self.boundaryConditions, usePrevT=None) # delet initial conditions to gain disk space ?
 
     def save(self):
         self.history['t'].append(self.t)
