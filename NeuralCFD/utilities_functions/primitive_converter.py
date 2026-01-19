@@ -7,7 +7,7 @@ def primitive_to_conserved(rho, u, p, T, Ys, thermo):
     """
     N = rho.size(dim=0)
 
-    # compute internal energy per mass directly: e = h - R_spec * T
+    # compute internal energy per mass directly: e = h - R_spec * T (perfect gas assumption
     Rspec = thermo.thermoProp.R_spec_from_Y(Ys)
     h = thermo.thermoProp.h_mix(T, Ys)
     e = h - Rspec * T

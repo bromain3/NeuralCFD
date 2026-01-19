@@ -5,6 +5,7 @@ from NeuralCFD.transport.rusanov import rusanovFlux
 from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlus import AUSMPlusFlux
 from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
+from NeuralCFD.interpolation.MUSCL import MUSCL, minmod
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 
@@ -142,8 +143,8 @@ if __name__ == "__main__":
     right_mask = x > x_throat
     A[right_mask] = A_throat + (A_max - A_throat) * ((x[right_mask] - x_throat) / (L - x_throat))
 
-
-    grid = NeuralCFD.grid.grid.grid(L, ncells, thermo, device=device, dtype=dtype, custome_S=A)
+    interpMethode = MUSCL(minmod)
+    grid = NeuralCFD.grid.grid.grid(L, ncells, thermo, interpolationMethode=interpMethode, device=device, dtype=dtype, custome_S=A)
 
     plt.plot(grid.x.cpu(), grid.V.cpu(), label="A(x)")
     #plt.axvline(x_throat, color='gray', linestyle='--', label="Throat")
@@ -197,11 +198,11 @@ if __name__ == "__main__":
     U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, thermo)
 
 
-    transportFlux = rusanovFlux()
+    transportFlux = AUSMPlusUpFlux()
     solver = solv_trans.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../../simulation_results/nozzle')
-    solver.solve(0.002, 100000, 0.9, 'res.json')
+    solver.solve(0.002, 100000, 0.4, 'res.json')
 
 
     post_proc = pp.PostProcessing('../../simulation_results/nozzle', 'res.json')
-    #post_proc.plotSnapchot('P', 0)
-    post_proc.animateField('T')
+    post_proc.plotSnapchot('rho', -1)
+    post_proc.animateField('rho')

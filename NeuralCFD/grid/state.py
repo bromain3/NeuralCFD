@@ -20,7 +20,7 @@ class state:
         self.Ys = torch.empty((self.ncells, self.nspecies), device=self.device, dtype=self.dtype)  #TODO: Ys, u and e could be recomputed at every call to gain in VRAM at expense of little computation time. it will also help to implement function for updating thermo variables less often
         self.e = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
 
-    def updateThermoFromQ(self, thermo, usePrevT=True):
+    def updateThermoFromQ(self, thermo, usePrevT=True): #TODO: make a unified thermo solver that computes everything that we need and unly read the values in this function
         self.rho = self.Q[0, :]
         inv_rho = 1.0 / self.rho
         self.u = self.Q[1, :] * inv_rho
