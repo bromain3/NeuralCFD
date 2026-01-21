@@ -10,6 +10,7 @@ class AUSMFlux(DummyTransport):
         Fc[1] = interface.rho * interface.a * interface.u
         Fc[2] = (interface.rho * (interface.e + 0.5 * interface.u ** 2) + interface.p) * interface.a #TODO: investigate the formula
         Fc[3:3 + interface.nspecies, :] = interface.Ys.T * interface.rho * interface.a
+        Fc[3 + interface.nspecies:3 + interface.nspecies + interface.nclasses, :] = interface.ns.T * interface.a
         return(Fc)
 
     def pressure_direction(self, interface):
@@ -18,6 +19,7 @@ class AUSMFlux(DummyTransport):
         Fp[1] = 1
         Fp[2] = 0
         Fp[3:3 + interface.nspecies, :] = 0
+        Fp[3 + interface.nspecies:3 + interface.nspecies + interface.nclasses, :] = 0
         return(Fp)
 
     def split_Mach(self, interface, direction=None):

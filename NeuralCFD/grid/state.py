@@ -1,14 +1,15 @@
 import torch
 
 class state:
-    def __init__(self, ncells, nspecies, device, dtype):
+    def __init__(self, ncells, nspecies, nclasses, device, dtype):
         self.ncells = ncells
         self.nspecies = nspecies
+        self.nclasses = nclasses
 
         self.device = device
         self.dtype = dtype
 
-        self.Q = torch.empty((3 + self.nspecies, self.ncells), device=self.device, dtype=self.dtype)
+        self.Q = torch.empty((3 + self.nspecies + self.nclasses, self.ncells), device=self.device, dtype=self.dtype)
 
         self.T = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
         self.cv  = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
@@ -18,6 +19,7 @@ class state:
         self.u = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
         self.p = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
         self.Ys = torch.empty((self.ncells, self.nspecies), device=self.device, dtype=self.dtype)  #TODO: Ys, u and e could be recomputed at every call to gain in VRAM at expense of little computation time. it will also help to implement function for updating thermo variables less often
+        self.ns = torch.empty((self.ncells, self.nclasses), device=self.device, dtype=self.dtype)
         self.e = torch.empty(self.ncells, device=self.device, dtype=self.dtype)
 
     def updateThermoFromQ(self, thermo, usePrevT=True): #TODO: make a unified thermo solver that computes everything that we need and unly read the values in this function
@@ -26,6 +28,7 @@ class state:
         self.u = self.Q[1, :] * inv_rho
         self.e = (self.Q[2, :] * inv_rho) - 0.5 * self.u ** 2
         self.Ys = (self.Q[3: 3 + self.nspecies, :] * inv_rho).T
+        self.ns = (self.Q[3 + self.nspecies: 3 + self.nspecies + self.nclasses, :]).T
         if usePrevT:
             self.T = thermo.solve_T_from_e_rho(self.e, self.Ys, T_guess=self.T)
         else:

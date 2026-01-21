@@ -1,8 +1,8 @@
 import torch
 
-def primitive_to_conserved(rho, u, p, T, Ys, thermo):
+def primitive_to_conserved(rho, u, p, T, Ys, ns, thermo):
     """
-    rho (ncells,), u (ncells,), p (ncells,), T (ncells,), Ys (ncells, nspecies)
+    rho (ncells,), u (ncells,), p (ncells,), T (ncells,), Ys (ncells, nspecies), ns (ncells, nclasses)
     returns U shape (3+nspecies, ncells)
     """
     N = rho.size(dim=0)
@@ -15,9 +15,10 @@ def primitive_to_conserved(rho, u, p, T, Ys, thermo):
     kinetic = 0.5 * u**2
     E = e + kinetic  # total energy per mass
 
-    U = torch.empty((3 + thermo.thermoProp.nspecies, N), device=thermo.device, dtype=thermo.dtype)
+    U = torch.empty((3 + thermo.thermoProp.nspecies + ns.shape[1], N), device=thermo.device, dtype=thermo.dtype)
     U[0, :] = rho
     U[1, :] = rho * u
     U[2, :] = rho * E
     U[3:3+thermo.thermoProp.nspecies, :] = (Ys.T * rho)
+    U[3+thermo.thermoProp.nspecies:3 + thermo.thermoProp.nspecies + ns.shape[1], :] = ns.T
     return U

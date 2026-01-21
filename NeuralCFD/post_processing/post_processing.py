@@ -64,10 +64,10 @@ class PostProcessing:
                                              metadata=dict(artist='Me'),
                                              bitrate=1800)
             anim.save(f'{variable}.gif', writer=writer)
-        #plt.show() #TODO: remove what is under
-        plt.show(block=False)
-        input("Animation terminée — appuie sur Entrée pour continuer...")
-        plt.close(fig)
+        plt.show() #TODO: remove what is under
+        #plt.show(block=False)
+        #input("Animation terminée — appuie sur Entrée pour continuer...")
+        #plt.close(fig)
 
     def computeConserved(self, thermo):
         if self.simData is None:
@@ -135,10 +135,10 @@ class PostProcessing:
                                              metadata=dict(artist='Me'),
                                              bitrate=1800)
             anim.save(os.path.join(self.dataPath, f'{variable}.gif'), writer=writer)
-        #plt.show() #TODO: remove what is under
-        plt.show(block=False)
-        input("Animation terminée — appuie sur Entrée pour continuer...")
-        plt.close(fig)
+        plt.show() #TODO: remove what is under
+        #plt.show(block=False)
+        #input("Animation terminée — appuie sur Entrée pour continuer...")
+        #plt.close(fig)
 
 
     def plotVariables(self, variables, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices

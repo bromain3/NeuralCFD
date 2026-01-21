@@ -20,6 +20,8 @@ class DummySolver(ABC):
         self.history = {'t': [], 'T': [], 'rho': [], 'P': [], 'u': []}
         for spe in self.thermo.thermoProp.species:
             self.history[f'Y_{spe}'] = []
+        for i in range(self.grid.nclasses):
+            self.history[f'N_{i}'] = []
 
         self.savingPath = savingPath
 
@@ -37,6 +39,8 @@ class DummySolver(ABC):
         self.history['rho'].append(list(self.grid.cells.rho.detach().clone().cpu().numpy()))
         for i, spe in enumerate(self.thermo.thermoProp.species):
             self.history[f'Y_{spe}'].append(list(self.grid.cells.Ys[:, i].detach().clone().cpu().numpy()))
+        for i in range(self.grid.nclasses):
+            self.history[f'N_{i}'].append(list(self.grid.cells.ns[:, i].detach().clone().cpu().numpy()))
         self.history['P'].append(list(self.grid.cells.p.detach().clone().cpu().numpy()))
         self.history['u'].append(list(self.grid.cells.u.detach().clone().cpu().numpy()))
 

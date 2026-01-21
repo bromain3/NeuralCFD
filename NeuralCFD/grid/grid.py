@@ -5,7 +5,7 @@ from NeuralCFD.interpolation.firstOrderInterp import FirstOrderInterpolation
 
 class grid:
 
-    def __init__(self, L, ncells, thermo, device, dtype, interpolationMethode=FirstOrderInterpolation(), custome_S=1.0, custome_dx=None):
+    def __init__(self, L, ncells, thermo, device, dtype, sectionalParams=None, interpolationMethode=FirstOrderInterpolation(), custome_S=1.0, custome_dx=None):
         #TODO: implement a varying mesh that will affect the transport solver
         assert type(ncells) == int
         assert type(L) == float
@@ -23,6 +23,7 @@ class grid:
         self.interpolationMethode = interpolationMethode
 
         # Creates everything with ghost cells
+        self.__createSectionalModel(sectionalParams)
         self.__createSpatialProperties(custome_S, custome_dx)
         self.__createQ()
         self.__createInterfaces()
@@ -265,11 +266,72 @@ class grid:
         self.V = 0.5 * (self.S[1:] + self.S[:-1]) * self.dx
 
     def __createQ(self):
-        self.cells = st.state(self.ncells, self.nspecies, self.device, self.dtype)
+        self.cells = st.state(self.ncells, self.nspecies, self.nclasses, self.device, self.dtype)
 
     def __createInterfaces(self):
-        self.leftInterfaces = st.state(self.ncells + 1, self.nspecies, self.device, self.dtype)
-        self.rightInterfaces = st.state(self.ncells + 1, self.nspecies, self.device, self.dtype)
+        self.leftInterfaces = st.state(self.ncells + 1, self.nspecies, self.nclasses, self.device, self.dtype)
+        self.rightInterfaces = st.state(self.ncells + 1, self.nspecies, self.nclasses, self.device, self.dtype)
+
+    def __createSectionalModel(self, sectionalParams):
+        if sectionalParams is None:
+            self.nclasses = 0
+            return
+
+        d_min = sectionalParams['dmin']
+        d_max = sectionalParams['dmax']
+        self.nclasses = sectionalParams['nclasses']
+
+        spacing = sectionalParams.get('spacing', 'log')  # 'log' par défaut
+
+        # Volumes min / max
+        v_min = (torch.pi / 6.0) * d_min ** 3
+        v_max = (torch.pi / 6.0) * d_max ** 3
+
+        if spacing == 'log':
+            # =========================
+            # Classes logarithmiques
+            # =========================
+            r = (v_max / v_min) ** (1.0 / self.nclasses)
+
+            k = torch.arange(0, self.nclasses + 1,
+                             device=self.device,
+                             dtype=self.dtype)
+
+            v_edges = v_min * r ** k
+
+            # volume moyen géométrique
+            v_k = torch.sqrt(v_edges[:-1] * v_edges[1:])
+
+        elif spacing == 'linear':
+            # =========================
+            # Classes linéaires en volume
+            # =========================
+            dv = (v_max - v_min) / self.nclasses
+
+            k = torch.arange(0, self.nclasses + 1,
+                             device=self.device,
+                             dtype=self.dtype)
+
+            v_edges = v_min + k * dv
+
+            # volume moyen arithmétique
+            v_k = 0.5 * (v_edges[:-1] + v_edges[1:])
+
+        else:
+            raise ValueError(
+                f"Unknown sectional spacing '{spacing}'. "
+                "Use 'log' or 'linear'."
+            )
+
+        # Largeur de section
+        dv_k = v_edges[1:] - v_edges[:-1]
+
+        # Stockage
+        self.classEdges = v_edges
+        self.meanParticuleVolume = v_k
+        self.sectionSize = dv_k
+
+
 
 
 if __name__ == '__main__':

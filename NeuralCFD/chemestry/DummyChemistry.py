@@ -6,7 +6,7 @@ class DummyChemistry(ABC):
 
     @abstractmethod
     def computeIntegratedTPY(self, grid, dt, reactor_model):
-       raise NotImplementedError('Any numerical flux class inheriting from DummyChemistry must implement a computeIntegratedTPY(grid) method.')
+       raise NotImplementedError('Any chemistry class inheriting from DummyChemistry must implement a computeIntegratedTPY(grid, dt, reactor_model) method.')
 
 
     def chemistry(self, dt, grid, thermo, bc, reactorModel='cst_p'):  # TODO: reactorModel should be in the neural net metadata in the very end
@@ -42,5 +42,5 @@ class DummyChemistry(ABC):
         else:
             raise ValueError('Unknown reactor model')
 
-        U_new = primitive_converter.primitive_to_conserved(rho, u, p_new, T_new, Ys_new, thermo)
+        U_new = primitive_converter.primitive_to_conserved(rho, u, p_new, T_new, Ys_new, grid.cells.ns, thermo)
         grid.updateCellsState(U_new, bc)

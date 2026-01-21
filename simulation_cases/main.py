@@ -1,10 +1,15 @@
 import NeuralCFD.grid.grid
 import NeuralCFD.thermo.vectorized_thermo
 import NeuralCFD.solver.POLENE_database_generator as db_gen
+from NeuralCFD.transport.AUSM import AUSMFlux
+from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.transport.rusanov import rusanovFlux
+from NeuralCFD.soot.HACA import HACA
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
 import NeuralCFD.solver.solver_transport_chemistry as s
+import NeuralCFD.solver.solver_transport as st
+import NeuralCFD.solver.solver_transport_soot as sts
 import NeuralCFD.post_processing.post_processing as pp
 import NeuralCFD.utilities_functions.primitive_converter as pc
 import cantera as ct
@@ -23,15 +28,16 @@ if __name__ == "__main__":
         Y = {'CH4': phi * mch4_mo2_st * 2 * MMO2, 'O2': 2 * MMO2, 'N2': 2 * MMO2 * O2_N2}
         return (Y)
 
-    device = 'cuda:1'
+    device = 'cpu'
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
 
-    ncells = 2000
+    ncells = 10
+    nclasses = 10
     th_file = r'../input_data/gri30.yaml'
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(th_file, device=device, dtype=dtype)
-    grid = NeuralCFD.grid.grid.grid(1.0, ncells, thermo, device=device, dtype=dtype)
+    grid = NeuralCFD.grid.grid.grid(1.0e-4, ncells, thermo, device=device, dtype=dtype, sectionalParams={"dmin": 1.0e-9, "dmax": 100.0e-9, "nclasses": nclasses, 'spacing': 'log'})
 
     """
     flame_speed = 0.6105775028327183 * 1.05
@@ -55,13 +61,16 @@ if __name__ == "__main__":
     bc = {'type': 'closed'}
 
 
-    gas.TPY = 1700, 101325, {'CH4':0.05483547715890419, 'O2':0.21878808399099442, 'N2':0.7263764388501015}
+    #gas.TPY = 1700, 101325, {'CH4':0.05483547715890419, 'O2':0.21878808399099442, 'N2':0.7263764388501015}
+    gas.TPY = 1700, 101325, {'CH4': 0.05483547715890419, 'N2': 0.7263764388501015}
     #gas.equilibrate('HP')
     # rho0 = 1.0 + 0.0 * x
     p0 = gas.P + 0.0 * grid.x
     u0 = 0.0 + 0.0 * grid.x
     T0 =  gas.T + 0.0 * grid.x
     Ys0 = torch.zeros((grid.ncells, grid.nspecies), device=device, dtype=dtype)
+    ns0 = torch.zeros((grid.ncells, grid.nclasses), device=device, dtype=dtype)
+    ns0[:, 5] = 1.0e13
     for spe in gas.species_names:
         Ys0[:, thermo.thermoProp.species.index(spe)] = gas.Y[gas.species_names.index(spe)] + 0.0 * grid.x
     #Ys0[:grid.ncells//2, :] = 0.0
@@ -72,22 +81,29 @@ if __name__ == "__main__":
     #T0[:grid.ncells//2] = 400.0
     Rspec0 = thermo.thermoProp.R_spec_from_Y(Ys0)
     rho0 = p0 / Rspec0 / T0
-    U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, thermo)
+    U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, ns0, thermo)
 
 
 
     transportFlux = rusanovFlux()
+    #transportFlux = AUSMPlusUpFlux()
     #chem = canteraChem(th_file, ncells)
-    chem = canteraChemMultiproc(th_file, ncells, nproc=10)
-    solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
+    #chem = canteraChemMultiproc(th_file, ncells, nproc=10)
+    #solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
+    sootSolver = HACA(grid, thermo)
+    #solver = st.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/test', initialGridTemperature=T0)
+    solver = sts.solver(grid, thermo, transportFlux, sootSolver, bc, U0, savingInterval=1, savingPath='../simulation_results/test', initialGridTemperature=T0)
     #solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
     #solver = db_gen.solver(grid, thermo, bc, U0, savingPath='data', reactorModel='cst_rho')
-    solver.solve(0.0005, 10, 0.95, 'test.json')
+    solver.solve(0.0005, 100, 0.95, 'sectional.json')
 
-    post_proc = pp.PostProcessing('../simulation_results/test', 'chem.json')
+    post_proc = pp.PostProcessing('../simulation_results/test', 'sectional.json')
     #post_proc.plotSnapchot('T', 0)
-    #post_proc.animateField('T')
-    post_proc.plotVariables(['T', 'P'], 0)
+    #post_proc.animateField('N_0')
+    for i in range(nclasses):
+        #post_proc.plotSnapchot(f'N_{i}', -1)
+        post_proc.animateField(f'N_{i}')
+    #post_proc.plotVariables(['T', 'P'], 0)
     #post_proc.animateField('P')
     #post_proc.plotVariable('P', 0)
     #post_proc.animateField('Y_C2H2')
