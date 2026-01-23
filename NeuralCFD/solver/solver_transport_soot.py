@@ -17,6 +17,13 @@ class solver(DummySolver):
         self.total_transport_time = 0
         self.total_soot_time = 0
 
+    def addStaticSave(self):
+        self.history['x'] = list(self.grid.x.detach().clone().cpu().numpy())
+        self.history['S'] = list(self.grid.S.detach().clone().cpu().numpy())
+        self.history['class_edges'] = list(self.grid.classEdges.detach().clone().cpu().numpy())
+        self.history['mean_particule_volume'] = list(self.grid.meanParticuleVolume.detach().clone().cpu().numpy())
+        self.history['section_size'] = list(self.grid.sectionSize.detach().clone().cpu().numpy())
+
 
     def oneStep(self, dt):
         ti = time.perf_counter()

@@ -4,7 +4,7 @@ import NeuralCFD.solver.POLENE_database_generator as db_gen
 from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.transport.rusanov import rusanovFlux
-from NeuralCFD.soot.HACA import HACA
+from NeuralCFD.soot.oneWayHACA_CPU import oneWayHACA
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
 import NeuralCFD.solver.solver_transport_chemistry as s
@@ -60,9 +60,16 @@ if __name__ == "__main__":
     gas = ct.Solution(thermo.thermoFilePath)
     bc = {'type': 'closed'}
 
-
+    # O2 oxydation
     #gas.TPY = 1700, 101325, {'CH4':0.05483547715890419, 'O2':0.21878808399099442, 'N2':0.7263764388501015}
-    gas.TPY = 1700, 101325, {'CH4': 0.05483547715890419, 'N2': 0.7263764388501015}
+    # OH oxydation
+    #gas.TPY = 1700, 101325, {'CH4': 0.05483547715890419, 'OH': 0.0021878808399099442, 'N2': 0.7263764388501015}
+    #neutral gas (pur coagulation)
+    #gas.TPY = 1700, 101325, {'CH4': 0.05483547715890419, 'N2': 0.7263764388501015}
+    # nucleation and surface growth and nucleation
+    #gas.TPY = 2500, 101325, {'CH4': 0.05483547715890419, 'C2H2': 0.21878808399099442, 'N2': 0.7263764388501015}
+    # all processes
+    gas.TPY = 1700, 101325, {'CH4': 0.05483547715890419,'O2':0.21878808399099442, 'OH': 0.021878808399099442,  'C2H2': 0.061878808399099442, 'N2': 0.7263764388501015}
     #gas.equilibrate('HP')
     # rho0 = 1.0 + 0.0 * x
     p0 = gas.P + 0.0 * grid.x
@@ -90,7 +97,7 @@ if __name__ == "__main__":
     #chem = canteraChem(th_file, ncells)
     #chem = canteraChemMultiproc(th_file, ncells, nproc=10)
     #solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
-    sootSolver = HACA(grid, thermo)
+    sootSolver = oneWayHACA(grid, thermo)
     #solver = st.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/test', initialGridTemperature=T0)
     solver = sts.solver(grid, thermo, transportFlux, sootSolver, bc, U0, savingInterval=1, savingPath='../simulation_results/test', initialGridTemperature=T0)
     #solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')

@@ -46,6 +46,8 @@ class DummySolver(ABC):
 
     def addStaticSave(self):
         self.history['x'] = list(self.grid.x.detach().clone().cpu().numpy())
+        self.history['S'] = list(self.grid.S.detach().clone().cpu().numpy())
+
 
     def writeResults(self, caseName):
         if self.savingPath is not None:
