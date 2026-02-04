@@ -1,4 +1,4 @@
-from NeuralCFD.soot.DummySoot import DummySoot
+from NeuralCFD.soot_chemistry.DummySoot import DummySoot
 import NeuralCFD.utilities_functions.primitive_converter as primitive_converter
 
 import torch
@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import numpy as np
 from scipy.integrate import solve_ivp
-from NeuralCFD.soot.DummySoot import DummySoot
+from NeuralCFD.soot_chemistry.DummySoot import DummySoot
 
 R = 8.31446261815324
 kB = 1.380649e-23

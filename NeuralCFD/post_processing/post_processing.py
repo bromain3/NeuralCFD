@@ -9,21 +9,21 @@ from scipy.interpolate import interp1d
 import NeuralCFD.utilities_functions.primitive_converter as pc
 from matplotlib import cm
 
-#TODO: plot (animated or not) a subpolt with rho, T, P, u and the geometry with a colormap plot to show dx
+
+# TODO: plot (animated or not) a subpolt with rho, T, P, u and the geometry with a colormap plot to show dx
 
 class PostProcessing:
 
-    def __init__(self, dataPath, caseName): #TODO: make data path optional and add error messages if no data
+    def __init__(self, dataPath, caseName):  # TODO: make data path optional and add error messages if no data
         self.dataPath = dataPath
         self.caseName = caseName
 
         self.simData = None
 
-
     def __loadData(self, dataPath, caseName):
         with open(os.path.join(dataPath, caseName), 'r') as f:
             simData = json.load(f)
-        return(simData)
+        return (simData)
 
     def animateFields(self, fields, variable, save_gif=False):
         simData = []
@@ -31,15 +31,16 @@ class PostProcessing:
         mins = []
         maxs = []
         for f in fields:
-            #TODO: interpolate fields on simData[0] time
+            # TODO: interpolate fields on simData[0] time
             simData.append(self.__loadData('', f))
-        time = simData[0]['t'] #TODO: extrapolate on the simulation with the lowest time interval
+        time = simData[0]['t']  # TODO: extrapolate on the simulation with the lowest time interval
         for data in simData:
             data[variable] = interp1d(data['t'], data[variable], axis=0, bounds_error=True)(time)
 
         fig, ax = plt.subplots()
         for n, data in enumerate(simData):
-            graphs.append(ax.plot(data['x'], data[variable][0], label=os.path.splitext(os.path.split(fields[n])[1])[0])[0])
+            graphs.append(
+                ax.plot(data['x'], data[variable][0], label=os.path.splitext(os.path.split(fields[n])[1])[0])[0])
             mins.append(min([min(i) for i in data[variable]]))
             maxs.append(max([max(i) for i in data[variable]]))
         plt.legend()
@@ -50,6 +51,7 @@ class PostProcessing:
         plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
         time = simData[0]['t'][0]
         plt.title(variable + f' | t = {time}')
+
         def update(frame):
             # creating a new graph or updating the graph
             for g, data in zip(graphs, simData):
@@ -61,13 +63,13 @@ class PostProcessing:
         if save_gif == True:
             # To save the animation using Pillow as a gif
             writer = animation.PillowWriter(fps=15,
-                                             metadata=dict(artist='Me'),
-                                             bitrate=1800)
+                                            metadata=dict(artist='Me'),
+                                            bitrate=1800)
             anim.save(f'{variable}.gif', writer=writer)
-        plt.show() #TODO: remove what is under
-        #plt.show(block=False)
-        #input("Animation terminée — appuie sur Entrée pour continuer...")
-        #plt.close(fig)
+        plt.show()  # TODO: remove what is under
+        # plt.show(block=False)
+        # input("Animation terminée — appuie sur Entrée pour continuer...")
+        # plt.close(fig)
 
     def computeConserved(self, thermo):
         if self.simData is None:
@@ -96,7 +98,7 @@ class PostProcessing:
         self.simData['rhou'] = rhou
         self.simData['rhoE'] = rhoE
         for i, s in enumerate(spe):
-            self.simData['rho'+s] = rhoYs[i, :, :].T
+            self.simData['rho' + s] = rhoYs[i, :, :].T
 
     def conservationPlot(self, var):
         if self.simData is None:
@@ -107,7 +109,6 @@ class PostProcessing:
         plt.xlabel('t')
         plt.ylabel(var)
         plt.show()
-
 
     def animateField(self, variable, save_gif=False):
         if self.simData is None:
@@ -122,6 +123,7 @@ class PostProcessing:
         plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
         time = self.simData['t'][0]
         plt.title(variable + f' | t = {time}')
+
         def update(frame):
             # creating a new graph or updating the graph
             graph.set_ydata(self.simData[variable][frame])
@@ -132,13 +134,13 @@ class PostProcessing:
         if save_gif == True:
             # To save the animation using Pillow as a gif
             writer = animation.PillowWriter(fps=15,
-                                             metadata=dict(artist='Me'),
-                                             bitrate=1800)
+                                            metadata=dict(artist='Me'),
+                                            bitrate=1800)
             anim.save(os.path.join(self.dataPath, f'{variable}.gif'), writer=writer)
-        plt.show() #TODO: remove what is under
-        #plt.show(block=False)
-        #input("Animation terminée — appuie sur Entrée pour continuer...")
-        #plt.close(fig)
+        plt.show()  # TODO: remove what is under
+        # plt.show(block=False)
+        # input("Animation terminée — appuie sur Entrée pour continuer...")
+        # plt.close(fig)
 
     def plotSpatialSootEvolution3D(self, time_idx, log_scale=True, y_axis='class'):
         """
@@ -268,7 +270,7 @@ class PostProcessing:
         if log_scale:
             ax.set_zlabel('log10(Concentration Ni [#/m3])')
         else:
-            ax.set_zlabel('Concentration Ni [#/m3]')
+            ax.set_zlabel('Concentration Ni [#/m3])')
 
         ax.set_title(f'Évolution Temporelle des Suies à x = {self.simData["x"][cell_idx]:.4e} m')
 
@@ -405,7 +407,6 @@ class PostProcessing:
 
         return anim
 
-
     def plotSpatialSootEvolution2D(self, time_idx, log_scale=True):
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
@@ -469,9 +470,8 @@ class PostProcessing:
         plt.tight_layout()
         plt.show()
 
-
-
-    def plotVariables(self, variables, cellidx): # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
+    def plotVariables(self, variables,
+                      cellidx):  # TODO: divide in 2 function : one for ploting time slices and the other one for plotting x slices
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
         if isinstance(variables, str) or (isinstance(variables, list) and len(variables) == 1):
@@ -504,4 +504,141 @@ class PostProcessing:
         plt.plot(self.simData['x'], var[timeidx, :])
         plt.xlabel('x')
         plt.ylabel(variable)
+        plt.show()
+
+    def plotSootVolumeFraction(self, timeidx, log_scale=False, unit='ppm'):
+        """
+        Trace la fraction volumique de suies pour un instant de temps donné
+
+        Parameters:
+        -----------
+        timeidx : int
+            Indice temporel
+        log_scale : bool
+            Utiliser une échelle logarithmique pour l'axe y
+        unit : str
+            'fraction' : afficher en fraction volumique
+            'ppm' : afficher en parties par million
+        """
+        if self.simData is None:
+            self.simData = self.__loadData(self.dataPath, self.caseName)
+
+        x_coords = self.simData['x']
+        section_size_m3 = np.array(self.simData['section_size'])  # Volume moyen par classe en m³
+        n_classes = len(section_size_m3)
+
+        # Calculer la fraction volumique totale
+        fv_total = np.zeros(len(x_coords))
+
+        for i in range(n_classes):
+            Ni_spatial = np.array(self.simData[f'N_{i}'])[timeidx, :]  # Concentration en #/m³
+            fv_i = Ni_spatial * section_size_m3[i]  # Fraction volumique de la classe i
+            fv_total += fv_i
+
+        # Conversion en ppm si demandé
+        if unit == 'ppm':
+            fv_total = fv_total * 1e6
+            ylabel = 'Fraction volumique de suies (ppm)'
+        else:
+            ylabel = 'Fraction volumique de suies'
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        if log_scale:
+            ax.semilogy(x_coords, fv_total, 'b-', linewidth=2)
+            ylabel += ' (log scale)'
+        else:
+            ax.plot(x_coords, fv_total, 'b-', linewidth=2)
+
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel('Position x (m)')
+        ax.set_title(f'Fraction volumique de suies à t = {self.simData["t"][timeidx]:.4e} s')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+
+    def animateSootVolumeFraction(self, log_scale=False, save_gif=False, unit='ppm'):
+        """
+        Anime l'évolution de la fraction volumique de suies au cours du temps
+
+        Parameters:
+        -----------
+        log_scale : bool
+            Utiliser une échelle logarithmique pour l'axe y
+        save_gif : bool
+            Sauvegarder l'animation en gif
+        unit : str
+            'fraction' : afficher en fraction volumique
+            'ppm' : afficher en parties par million
+        """
+        if self.simData is None:
+            self.simData = self.__loadData(self.dataPath, self.caseName)
+
+        x_coords = self.simData['x']
+        time_coords = self.simData['t']
+        section_size_m3 = np.array(self.simData['section_size'])
+        n_classes = len(section_size_m3)
+
+        # Pré-calculer toutes les fractions volumiques
+        fv_all_times = []
+        for time_idx in range(len(time_coords)):
+            fv_total = np.zeros(len(x_coords))
+            for i in range(n_classes):
+                Ni_spatial = np.array(self.simData[f'N_{i}'])[time_idx, :]
+                fv_i = Ni_spatial * section_size_m3[i]
+                fv_total += fv_i
+            fv_all_times.append(fv_total)
+
+        fv_all_times = np.array(fv_all_times)
+
+        # Conversion en ppm si demandé
+        if unit == 'ppm':
+            fv_all_times = fv_all_times * 1e6
+            ylabel = 'Fraction volumique de suies (ppm)'
+        else:
+            ylabel = 'Fraction volumique de suies'
+
+        # Déterminer les limites des axes
+        if log_scale:
+            fv_min = np.min(fv_all_times[fv_all_times > 0]) if np.any(fv_all_times > 0) else 1e-20
+            fv_max = np.max(fv_all_times)
+            ylabel += ' (log scale)'
+        else:
+            fv_min = np.min(fv_all_times)
+            fv_max = np.max(fv_all_times)
+
+        delta_y = fv_max - fv_min
+        blank_proportion = 0.05
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        graph, = ax.plot(x_coords, fv_all_times[0], 'b-', linewidth=2)
+
+        if log_scale:
+            ax.set_yscale('log')
+            ax.set_ylim(fv_min * 0.5, fv_max * 2)
+        else:
+            ax.set_ylim(fv_min - blank_proportion * delta_y,
+                        fv_max + blank_proportion * delta_y)
+
+        ax.set_xlabel('Position x (m)')
+        ax.set_ylabel(ylabel)
+
+        title = ax.set_title(f'Fraction volumique de suies | t = {time_coords[0]:.6e} s')
+        ax.grid(True, alpha=0.3)
+
+        def update(frame):
+            graph.set_ydata(fv_all_times[frame])
+            title.set_text(f'Fraction volumique de suies | t = {time_coords[frame]:.6e} s')
+            return graph, title
+
+        anim = FuncAnimation(fig, update, frames=len(time_coords), interval=50, blit=True)
+
+        if save_gif:
+            writer = animation.PillowWriter(fps=15,
+                                            metadata=dict(artist='Me'),
+                                            bitrate=1800)
+            anim.save(os.path.join(self.dataPath, 'soot_volume_fraction.gif'), writer=writer)
+            print(f"Animation sauvegardée : {os.path.join(self.dataPath, 'soot_volume_fraction.gif')}")
+
+        plt.tight_layout()
         plt.show()

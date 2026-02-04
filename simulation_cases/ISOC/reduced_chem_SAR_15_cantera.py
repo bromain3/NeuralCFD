@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
 
 
-    solver = s.solver(grid, thermo, bc, U0, savingInterval=1, savingPath='data', reactorModel='cst_p')
+    solver = s.solver(grid, thermo, bc, U0,,
     solver.solve(2 * 0.0005, 10000, 1e-6, 'auto_allumage_SAR_15_cantera.json')
 
     post_proc = pp.PostProcessing('data', 'auto_allumage_SAR_15_cantera.json')

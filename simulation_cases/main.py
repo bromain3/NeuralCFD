@@ -4,7 +4,7 @@ import NeuralCFD.solver.POLENE_database_generator as db_gen
 from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.transport.rusanov import rusanovFlux
-from NeuralCFD.soot.oneWayHACA_CPU import oneWayHACA
+from NeuralCFD.soot_chemistry.oneWayHACA_CPU import oneWayHACA
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
 import NeuralCFD.solver.solver_transport_chemistry as s

@@ -4,8 +4,11 @@ import NeuralCFD.solver.POLENE_database_generator as db_gen
 from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.transport.rusanov import rusanovFlux
-from NeuralCFD.soot.oneWayHACA_CPU import oneWayHACA_CPU
-from NeuralCFD.soot.oneWayHACA_GPU import oneWayHACA_GPU
+from NeuralCFD.soot_chemistry.oneWayHACA_CPU import oneWayHACA_CPU
+from NeuralCFD.soot_chemistry.oneWayHACA_GPU import oneWayHACA_GPU
+from NeuralCFD.soot_chemistry.oneWaySimpleHACA_GPU import oneWaySimpleHACA_GPU
+from NeuralCFD.soot_chemistry.oneWaySimpleHACA_CPU import oneWaySimpleHACA_CPU
+from NeuralCFD.soot_chemistry.FrenklachetWang_Leung_nucleation import FrenklachetWang_Leung_nucleation
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
 import NeuralCFD.solver.solver_transport_chemistry as s
@@ -41,12 +44,13 @@ if __name__ == "__main__":
     nclasses = 20
     th_file = r'../../input_data/gri30.yaml'
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(th_file, device=device, dtype=dtype)
+
     grid = NeuralCFD.grid.grid.grid(10.0e-3 / 2, ncells, thermo, device=device, dtype=dtype, sectionalParams={"dmin": 1.0e-9, "dmax": 100.0e-9, "nclasses": nclasses, 'spacing': 'log'})
 
     bc = {'type': 'symetric'}
     gas = ct.Solution(thermo.thermoFilePath)
 
-    gas.Y = phi2Y(1.0)
+    gas.Y = phi2Y(0.7)
 
     p0 = 101325.0 + 0.0 * grid.x
     u0 = 0.0 + 0.0 * grid.x
@@ -65,18 +69,20 @@ if __name__ == "__main__":
     #chem = canteraChem(th_file, ncells)
     transportFlux = rusanovFlux()
     #sootSolver = oneWayHACA_CPU(grid, thermo)
-    sootSolver = oneWayHACA_GPU(grid, thermo)
+    #sootSolver = oneWayHACA_GPU(grid, thermo)
+    #sootSolver = oneWaySimpleHACA_GPU(grid, thermo)
+    sootSolver = FrenklachetWang_Leung_nucleation(grid, thermo)
 
 
     #solver = stcs.solver(grid, thermo, transportFlux, chem, sootSolver, bc, U0, savingInterval=10, savingPath='../simulation_results/sooting_flamme', initialGridTemperature=T0)
-    solver = stcss.solver(grid, thermo, transportFlux, chem, sootSolver, bc, U0, savingInterval=10, simdt=1.0e-7, savingPath='../simulation_results/sooting_flamme', initialGridTemperature=T0)
+    solver = stcss.solver(grid, thermo, transportFlux, chem, sootSolver, bc, U0, savingInterval=10, simdt=1.0e-7, savingPath='../../simulation_results/sooting_flamme', initialGridTemperature=T0)
 
-    #solver.solve(0.0005, 100_000, 0.95, 'first_test.json')
+    #solver.solve(0.00033, 100_000, 0.95, 'first_test.json')
 
 
-    post_proc = pp.PostProcessing('../simulation_results/sooting_flamme', 'first_test.json')
+    post_proc = pp.PostProcessing('../../simulation_results/sooting_flamme', 'first_test.json')
     #post_proc.plotSnapchot('N_0', -1)
-    #post_proc.animateField('N_10')
+    #post_proc.animateField('T', save_gif=True)
     #post_proc.plotSpatialSootEvolution2D(-1)
     #post_proc.plotSpatialSootEvolution3D(-1, y_axis='log_size')
     #post_proc.plotTemporalSootEvolution2D(0)

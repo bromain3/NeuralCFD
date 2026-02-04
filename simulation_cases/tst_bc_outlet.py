@@ -36,7 +36,7 @@ if __name__ == "__main__":
     U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, thermo)
 
 
-    solver = s.solver(grid, thermo, bc, U0, savingInterval=5, savingPath='test_outlet')
+    solver = s.solver(grid, thermo, bc, U0,,
 
     solver.solve(0.005, 100000, 0.95, 'sim.json')
 

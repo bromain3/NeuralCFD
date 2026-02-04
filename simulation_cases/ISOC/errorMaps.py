@@ -57,7 +57,7 @@ def full_cantera(Tini, phiini):
     rho0 = p0 / Rspec0 / T0
     U0 = pc.primitive_to_conserved(rho0, u0, p0, T0, Ys0, thermo)
 
-    solver = ctsolv.solver(grid, thermo, bc, U0, savingInterval=1, savingPath='map_full_cantera_200', reactorModel='cst_p')
+    solver = ctsolv.solver(grid, thermo, bc, U0,,
     solver.solve(0.001, 10000000, dt, f'T_{Tini}_phi_{phiini}.json')
 
 

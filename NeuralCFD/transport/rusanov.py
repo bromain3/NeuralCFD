@@ -10,7 +10,7 @@ class rusanovFlux(DummyTransport):
         F[1] = interfaces.rho * interfaces.u ** 2 + interfaces.p
         F[2] = (interfaces.rho * (interfaces.e + 0.5 * interfaces.u ** 2) + interfaces.p) * interfaces.u  # rho E * u + p u
         F[3:3 + interfaces.nspecies, :] = interfaces.Ys.T * interfaces.rho * interfaces.u
-        F[3 + interfaces.nspecies:3 + interfaces.nspecies + interfaces.nclasses, :] = interfaces.ns.T * interfaces.u
+        F[3 + interfaces.nspecies: 3 + interfaces.nspecies + interfaces.nclasses, :] = interfaces.ns.T * interfaces.u
         return(F)
 
     def numerical_flux(self, leftInterfaces, rightInterfaces):

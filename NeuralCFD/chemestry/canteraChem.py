@@ -27,6 +27,7 @@ class canteraChem(DummyChemistry):
 
         # --- Boucle sur les cellules ---
         if model == 'cst_rho':
+            # TODO: directly extract Q where concentration is stored instaed of using Ys and then multiplying
             for i in range(ncells):
                 # État initial de Cantera
                 self.gas.TDY = T_np[i], rho_np[i], Y_np[i]

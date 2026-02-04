@@ -13,8 +13,10 @@ Author: Optimized version for GPU execution
 """
 
 import torch
+import numpy as np
+from scipy.integrate import solve_ivp
 from NeuralCFD.numerical_integrators.RK45 import RK45Integrator
-from NeuralCFD.soot.DummySoot import DummySoot
+from NeuralCFD.soot_chemistry.DummySoot import DummySoot
 
 
 # Physical constants
@@ -25,15 +27,13 @@ lambda_g = 68e-9  # Mean free path (m)
 mu = 1.8e-5  # Dynamic viscosity (Pa·s)
 
 
-class oneWayHACA_GPU(DummySoot):
+class oneWaySimpleHACA_CPU(DummySoot):
     """
     GPU-optimized one-way HACA soot model.
     All computations performed on GPU with batched operations.
     """
 
-    def __init__(self, grid, thermo, C2H2name='C2H2', C2H2order=1.0, O2name='O2', OHname='OH',
-                 A_nuc=1.0e5, EA_nuc=180e3,
-                 k_OH=1.0e4, k_O2=2.0e2,
+    def __init__(self, grid, thermo, C2H2name='C2H2', O2name='O2', OHname='OH', Oname='O',
                  A_HACA=1.0e5, n_HACA=0.0, Ea_HACA=1.5e5, alpha=1.0):
         """
         Initialize GPU-optimized HACA model.
@@ -58,13 +58,9 @@ class oneWayHACA_GPU(DummySoot):
         self.C2H2idx = thermo.thermoProp.species.index(C2H2name)
         self.OHidx = thermo.thermoProp.species.index(OHname)
         self.O2idx = thermo.thermoProp.species.index(O2name)
+        self.Oidx = thermo.thermoProp.species.index(Oname)
 
         # Kinetic constants (convert to tensors)
-        self.A_nuc = torch.tensor(A_nuc, device=self.device, dtype=self.dtype)
-        self.EA_nuc = torch.tensor(EA_nuc, device=self.device, dtype=self.dtype)
-        self.C2H2order = C2H2order
-        self.k_OH = torch.tensor(k_OH, device=self.device, dtype=self.dtype)
-        self.k_O2 = torch.tensor(k_O2, device=self.device, dtype=self.dtype)
         self.A_HACA = torch.tensor(A_HACA, device=self.device, dtype=self.dtype)
         self.n_HACA = n_HACA
         self.Ea_HACA = torch.tensor(Ea_HACA, device=self.device, dtype=self.dtype)
@@ -114,24 +110,28 @@ class oneWayHACA_GPU(DummySoot):
         kn = self.lambda_g / self.radii
         self.cc = 1 + kn * (1.257 + 0.4 * torch.exp(-1.1 / kn))  # (nclasses,)
 
-    def nucleation(self, grid):
+    def nucleation_Leung(self, ns, Ys_cell, rho_cell, T_cell, meanPartVolume): # Leung model. The incipient particles diameter is approximately 1.24nm
         """
         Nucleation source term (batched).
 
         Returns:
             dndt: (ncells, nclasses) tensor
         """
-        ncells = grid.cells.ns.shape[0]
+
         # C2H2 concentration
-        C_C2H2 = grid.cells.Ys[:, self.C2H2idx] * grid.cells.rho  # (ncells,)
+        C_C2H2 = Ys_cell[self.C2H2idx] * rho_cell  # (ncells,) #TODO: directly extract Q where concentration is stored
         # Nucleation rate
-        R_nuc = self.A_nuc * torch.exp(-self.EA_nuc / (self.R * grid.cells.T)) * C_C2H2 ** self.C2H2order
+        k1 = 0.1e5 * np.exp(-21_000 / T_cell)  # 1/s
+
+        R_nuc = k1 * C_C2H2
+        C2H2_loss = -R_nuc
+        H2_gain = R_nuc
         # Mass of nucleated particle
-        v_nuc = grid.meanParticuleVolume[0]
+        v_nuc = meanPartVolume[0]
         m_p = self.RHO_SOOT * v_nuc
         # Number density rate (only first section)
-        dndt = torch.zeros_like(grid.cells.ns)
-        dndt[:, 0] = R_nuc / m_p
+        dndt = np.zeros_like(ns)
+        dndt[0] = R_nuc / m_p
         return dndt
 
     def _compute_R_HACA(self, grid):
@@ -170,74 +170,64 @@ class oneWayHACA_GPU(DummySoot):
         K = prefactor * (ri + rj) * (cc_i / ri + cc_j / rj)  # (ncells, nclasses, nclasses)
         return K
 
-    def _surface_growth_batched(self, ns, G):
-        """
-        Vectorized surface growth for all cells.
+    @staticmethod
+    def _surface_growth(ns, G, sectionSize):
+        """Croissance surfacique - flux en espace des tailles"""
+        flux = G * ns
 
-        Args:
-            ns: (ncells, nclasses) particle number densities
-            G: (ncells, nclasses) growth rates
+        dndt = np.zeros_like(ns)
+        dndt[1:] += flux[:-1] / sectionSize[1:]
+        dndt[:-1] -= flux[:-1] / sectionSize[:-1]
 
-        Returns:
-            dndt: (ncells, nclasses) rate of change
-        """
-        flux = G * ns  # (ncells, nclasses)
-        dndt = torch.zeros_like(ns)
-        # Incoming flux to section i from i-1
-        dndt[:, 1:] += flux[:, :-1] / self.sectionSize[1:]
-        # Outgoing flux from section i to i+1
-        dndt[:, :-1] -= flux[:, :-1] / self.sectionSize[:-1]
         return dndt
 
-    def _oxidation_batched(self, ns, L):
-        """
-        Vectorized oxidation for all cells.
 
-        Args:
-            ns: (ncells, nclasses) particle number densities
-            L: (ncells, nclasses) oxidation rates
+    @staticmethod
+    def _oxidation(ns, L, sectionSize):
+        """Oxydation - flux inverse en espace des tailles"""
+        flux = L * ns
 
-        Returns:
-            dndt: (ncells, nclasses) rate of change
-        """
-        flux = L * ns  # (ncells, nclasses)
-        dndt = torch.zeros_like(ns)
-        # Incoming flux to section i from i+1 (reverse direction)
-        dndt[:, :-1] += flux[:, 1:] / self.sectionSize[:-1]
-        # Outgoing flux from section i to i-1
-        dndt[:, 1:] -= flux[:, 1:] / self.sectionSize[1:]
+        dndt = np.zeros_like(ns)
+        dndt[:-1] += flux[1:] / sectionSize[:-1]
+        dndt[1:] -= flux[1:] / sectionSize[1:]
+        dndt[0] -= flux[0] / sectionSize[0]
+
         return dndt
 
-    def _coagulation_batched(self, ns, K, coag_map):
+
+    @staticmethod
+    def _coagulation(ns, K_cell, coag_map, nclasses):
         """
-        Version 3D 100% vectorisée (sans boucle for).
+        Coagulation Brownienne optimisée
+        Utilise la symétrie et évite les calculs redondants
         """
-        ncells, nclasses = ns.shape
-        # 1. Calcul des produits extérieurs (ni * nj)
-        ns_i = ns.unsqueeze(2)
-        ns_j = ns.unsqueeze(1)
-        product = ns_i * ns_j  # (ncells, nclasses, nclasses)
-        # 2. Application du noyau et du facteur de symétrie
-        mask_diag = torch.eye(nclasses, device=self.device, dtype=self.dtype)
-        symmetry_factor = 0.5 * mask_diag + (1.0 - mask_diag)
-        rate = K * product * symmetry_factor  # (ncells, nclasses, nclasses)
-        # 3. Termes de perte (Loss)
-        # On somme sur j pour avoir la perte de i, et on ajoute la perte de j
-        loss_i = rate.sum(dim=2)
-        loss_j = rate.sum(dim=1)
-        # On retire la diagonale une fois car elle est comptée deux fois dans i+j
-        diag_rates = torch.diagonal(rate, dim1=1, dim2=2)
-        total_loss = loss_i + loss_j - diag_rates
-        # 4. Termes de gain (Gain) - Transformation 3D ici
-        dndt = -total_loss
-        # Aplatir les taux : (ncells, nclasses * nclasses)
-        rate_flat = rate.view(ncells, -1)
-        # Préparer la map en 3D : (ncells, nclasses * nclasses)
-        # expand() crée une vue virtuelle sans copier les données
-        coag_map_3d = coag_map.flatten().expand(ncells, -1)
-        # Un seul scatter_add pour toutes les cellules d'un coup
-        dndt.scatter_add_(1, coag_map_3d, rate_flat)
-        return dndt
+        dNdt = np.zeros_like(ns)
+
+        # Boucle optimisée avec symétrie
+        for i in range(nclasses):
+            ni = ns[i]
+            if ni < 1e-30:  # Skip cellules vides
+                continue
+
+            for j in range(i, nclasses):
+                nj = ns[j]
+                if nj < 1e-30:
+                    continue
+
+                beta = K_cell[i, j]
+
+                # Taux de coagulation
+                rate = (0.5 if i == j else 1.0) * beta * ni * nj
+
+                # Pertes
+                dNdt[i] -= rate
+                if i != j:
+                    dNdt[j] -= rate
+
+                # Gain dans section cible
+                dNdt[coag_map[i, j]] += rate
+
+        return dNdt
 
     def coagulation_dt_limit(self, grid, CFL=0.2):
         """
@@ -272,56 +262,58 @@ class oneWayHACA_GPU(DummySoot):
         # Surface growth rates G[cell, class]
         G = self.surfaces[None, :] * R_HACA[:, None]  # (ncells, nclasses)
         # Oxidation rates L[cell, class]
-        oxyd_rate = (self.k_OH * grid.cells.Ys[:, self.OHidx] +
-                     self.k_O2 * grid.cells.Ys[:, self.O2idx]) * grid.cells.rho
+        MW_OH = 17e-3  # kg/mol
+        MW_O = 16e-3
+        C_OH = grid.cells.rho * grid.cells.Ys[:, self.OHidx] / MW_OH
+        C_O = grid.cells.rho * grid.cells.Ys[:, self.Oidx] / MW_O
+        k = 2.0e7 * torch.exp(-87864 / (8.314 * grid.cells.T))
+        oxyd_rate = k * (self.alpha * C_OH + C_O)
         L = self.surfaces[None, :] * oxyd_rate[:, None]  # (ncells, nclasses)
-        # Store for RHS function
-        self._G = G
-        self._L = L
-        self._K = K
-        # Define RHS function for integrator
-        def rhs_soot(ns, t):
-            """
-            Right-hand side for population balance equations.
 
-            Args:
-                ns: (ncells, nclasses) current state
-                t: time (unused, autonomous system)
 
-            Returns:
-                dndt: (ncells, nclasses) rate of change
-            """
-            # Ensure non-negative
-            ns = torch.clamp(ns, min=0.0)
-            # Compute all terms
-            dn_growth = self._surface_growth_batched(ns, self._G)
-            dn_oxyd = self._oxidation_batched(ns, self._L)
-            dn_coag = self._coagulation_batched(ns, self._K, self.coag_map)
-            return dn_growth + dn_oxyd + dn_coag
+        # Conversion numpy
+        sectionSize = grid.sectionSize.cpu().numpy()
+        meanPartVolume = grid.meanParticuleVolume.cpu().numpy()
+        T_np = grid.cells.T.cpu().numpy()
+        Ys_np = grid.cells.Ys.cpu().numpy()
+        rho_np = grid.cells.rho.cpu().numpy()
+        K_numpy = K.cpu().numpy()
+        G_numpy = G.cpu().numpy()
+        L_numpy = L.cpu().numpy()
+        coag_map = self.coag_map.cpu().numpy()
+        ns0_all = grid.cells.ns.cpu().numpy()
 
-        # Create integrator instance
-        integrator = RK45Integrator(  #TODO: optimize by not creating an instance at each time but just updating the rhs
-            rhs_soot,
-            device=self.device,
-            dtype=self.dtype,
-            #rtol=self.rtol,
-            #atol=self.atol,
-            #verbose=True
-        )
+        # === Intégration cellule par cellule ===
+        ncells, nclasses = ns0_all.shape
+        ns_final_all = np.empty_like(ns0_all)
 
-        # Initial condition
-        ns0 = grid.cells.ns.clone()
+        for cell_idx in range(ncells):
+            ns0 = ns0_all[cell_idx]
 
-        # Integrate over [0, dt]
-        t_vals, ns_vals = integrator.integrate(ns0, t_span=(0.0, dt))
-        ns_final = ns_vals[-1]  # Last time point
+            # Paramètres locaux
+            G_cell = G_numpy[cell_idx]
+            L_cell = L_numpy[cell_idx]
+            K_cell = K_numpy[cell_idx]
 
-        # Add nucleation (can be integrated separately or as source term)
-        dn_nucleation = self.nucleation(grid) * dt
-        ns_total = ns_final + dn_nucleation
+            # Fonction RHS optimisée
+            def rhs(t, ns):
+                ns = np.maximum(ns, 0.0)
 
-        # Ensure non-negative
-        ns_total = torch.clamp(ns_total, min=0.0)
+                dn_growth = self._surface_growth(ns, G_cell, sectionSize)
+                dn_oxyd = self._oxidation(ns, L_cell, sectionSize)
+                dn_coag = self._coagulation(ns, K_cell, coag_map, nclasses)
+                dn_nucleation = self.nucleation_Leung(ns, Ys_np[cell_idx], rho_np[cell_idx], T_np[cell_idx], meanPartVolume)
 
+                return dn_growth + dn_oxyd + dn_coag + dn_nucleation
+
+            sol = solve_ivp(
+                rhs, [0, dt], ns0,
+                method='RK45',  # BDF Meilleur pour systèmes raides
+            )
+            ns_final_all[cell_idx] = sol.y[:, -1]
+
+        # Conversion torch et ajout nucléation
+        ns_total = np.maximum(ns_final_all, 0.0)
+        ns_total = torch.from_numpy(ns_total).to(grid.device)
 
         return ns_total

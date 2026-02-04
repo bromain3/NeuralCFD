@@ -273,7 +273,7 @@ class grid:
         self.rightInterfaces = st.state(self.ncells + 1, self.nspecies, self.nclasses, self.device, self.dtype)
 
     def __createSectionalModel(self, sectionalParams):
-        if sectionalParams is None:
+        if sectionalParams is None or sectionalParams['nclasses'] == 0:
             self.nclasses = 0
             return
 
@@ -292,7 +292,6 @@ class grid:
             # Classes logarithmiques
             # =========================
             r = (v_max / v_min) ** (1.0 / self.nclasses)
-
             k = torch.arange(0, self.nclasses + 1,
                              device=self.device,
                              dtype=self.dtype)
