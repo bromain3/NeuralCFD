@@ -50,7 +50,7 @@ if __name__ == "__main__":
     bc = {'type': 'symetric'}
     gas = ct.Solution(thermo.thermoFilePath)
 
-    gas.Y = phi2Y(0.7)
+    gas.Y = phi2Y(1.5)
 
     p0 = 101325.0 + 0.0 * grid.x
     u0 = 0.0 + 0.0 * grid.x
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     #post_proc.plotSpatialSootEvolution3D(-1, y_axis='log_size')
     #post_proc.plotTemporalSootEvolution2D(0)
     #post_proc.plotTemporalSootEvolution3D(0, y_axis='log_size')
-    post_proc.plotSpatialSootEvolutionAnimated3D(y_axis='log_size')
+    post_proc.plotSpatialSootEvolutionAnimated3D(y_axis='log_size', save_path=r'../../simulation_results/sooting_flamme/rich_flame_soot.gif')
     #for i in range(nclasses):
         #post_proc.plotSnapchot(f'N_{i}', -1)
         #post_proc.animateField(f'N_{i}')

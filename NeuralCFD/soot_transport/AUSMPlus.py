@@ -1,7 +1,7 @@
 import torch
-from NeuralCFD.transport.DummyTransport import DummyTransport
+from NeuralCFD.soot_transport.DummySootTransport import DummySootTransport
 
-class AUSMPlusFlux(DummyTransport):
+class AUSMPlusFlux(DummySootTransport):
 
     alpha = 3.0 / 16.0
 

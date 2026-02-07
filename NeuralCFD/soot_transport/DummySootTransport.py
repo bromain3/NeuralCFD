@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 #TODO: try a monolithic solver where operators act as source terms
 #TODO: add a function to return the max allowable time step as with geometric source terms, the CFL condition should not apply. the CFL condition must be hand derived
 #TODO: add a model for curvilinear 1D solver for having the most complet solver
-class DummyTransport(ABC):
+class DummySootTransport(ABC):
 
     @abstractmethod
     def numerical_flux(self, leftInterface, rightInterface):
@@ -16,7 +16,7 @@ class DummyTransport(ABC):
         return 0
 
     def max_wave_speed(self, interfaces):
-        return(torch.abs(interfaces.u) + interfaces.a)
+        return(torch.abs(interfaces.u))
 
     def transport(self, dt, grid, bc):
         F_int = self.numerical_flux(grid.leftInterfaces, grid.rightInterfaces)

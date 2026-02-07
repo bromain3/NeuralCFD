@@ -524,7 +524,7 @@ class PostProcessing:
             self.simData = self.__loadData(self.dataPath, self.caseName)
 
         x_coords = self.simData['x']
-        section_size_m3 = np.array(self.simData['section_size'])  # Volume moyen par classe en m³
+        section_size_m3 = np.array(self.simData['mean_particule_volume'])  # Volume moyen par classe en m³
         n_classes = len(section_size_m3)
 
         # Calculer la fraction volumique totale
@@ -576,7 +576,7 @@ class PostProcessing:
 
         x_coords = self.simData['x']
         time_coords = self.simData['t']
-        section_size_m3 = np.array(self.simData['section_size'])
+        section_size_m3 = np.array(self.simData['mean_particule_volume'])
         n_classes = len(section_size_m3)
 
         # Pré-calculer toutes les fractions volumiques

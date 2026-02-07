@@ -1,7 +1,7 @@
 import torch
-from NeuralCFD.transport.DummyTransport import DummyTransport
+from NeuralCFD.soot_transport.DummySootTransport import DummySootTransport
 
-class rusanovFlux(DummyTransport):
+class rusanovFlux(DummySootTransport):
 
     def flux(self, interfaces):
         # conservative fluxes: (it could be expressed with the conserved quantites vector and p)

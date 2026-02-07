@@ -328,6 +328,7 @@ class grid:
         # Stockage
         self.classEdges = v_edges
         self.meanParticuleVolume = v_k
+        self.meanParticuleSurface = torch.pi * torch.pow(6 * self.meanParticuleVolume / torch.pi, 2.0 / 3.0)
         self.sectionSize = dv_k
 
 

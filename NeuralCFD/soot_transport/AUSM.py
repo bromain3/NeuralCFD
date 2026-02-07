@@ -1,7 +1,7 @@
 import torch
-from NeuralCFD.transport.DummyTransport import DummyTransport
+from NeuralCFD.soot_transport.DummySootTransport import DummySootTransport
 
-class AUSMFlux(DummyTransport):
+class AUSMFlux(DummySootTransport):
 
     def convective_flux(self, interface):
         # conservative fluxes: (it could be expressed with the conserved quantites vector and p)
