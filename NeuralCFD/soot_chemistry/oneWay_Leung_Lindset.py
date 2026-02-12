@@ -102,23 +102,114 @@ class oneWay_Leung_Lindset(DummySoot):
         self.coag_map = self._build_conservative_coag_map(grid)
         self._precompute_geometry(grid)
 
+        self._precompute_scatter_indices(grid.ncells, grid.nclasses, self.coag_map)
+
+
+        # Précalcul du masque triangulaire
+        nclasses = grid.nclasses
+        triu_mask = torch.triu(torch.ones(nclasses, nclasses, dtype=self.dtype, device=self.device))
+        diag_mask = torch.eye(nclasses, dtype=self.dtype, device=self.device)
+        self._triu_mask_coag = triu_mask - 0.5 * diag_mask
+
         # ============== GRID INFO ==============
         self.nclasses = grid.nclasses
 
+    # ==================== COAGULATION MAP (REFACTORISÉE) ====================
     def _build_conservative_coag_map(self, grid):
-        """Construction vectorisée de la carte de coagulation sur GPU."""
+        """
+        Construction de la carte de coagulation - VERSION COHÉRENTE avec basic_loops
+
+        LOGIQUE (identique à _coagulation_basic_loops):
+        Pour chaque paire (j, k):
+        1. v_new = v_j + v_k
+        2. Trouver k_low tel que: v[k_low] <= v_new < v[k_low+1]
+        3. k_high = k_low + 1 (sauf si overflow → k_high = k_low)
+        4. frac_low = (v_high - v_new) / (v_high - v_low)
+
+        Cette carte sera utilisée par _coagulation_vectorized
+        """
         nclasses = grid.nclasses
-        v = grid.meanParticuleVolume  # (nclasses,) volumes en m³
+        v = self.m_class / self.RHO_SOOT  # (nclasses,) volumes en m³
 
-        # v_new[i,j] = v[i] + v[j]
-        v_new = v[:, None] + v[None, :]  # (nclasses, nclasses)
+        # Matrice des volumes résultants v_new[j,k] = v[j] + v[k]
+        v_j = v[:, None]  # (nclasses, 1)
+        v_k = v[None, :]  # (1, nclasses)
+        v_new = v_j + v_k  # (nclasses, nclasses)
 
-        # Trouver la classe de destination
-        k = torch.searchsorted(grid.classEdges, v_new.flatten()) - 1
-        k = torch.clamp(k, 0, nclasses - 1).reshape(nclasses, nclasses)
+        # Initialisation des tenseurs de sortie
+        k_low = torch.zeros((nclasses, nclasses), dtype=torch.long, device=self.device)
+        k_high = torch.zeros((nclasses, nclasses), dtype=torch.long, device=self.device)
+        frac_low = torch.zeros((nclasses, nclasses), dtype=self.dtype, device=self.device)
 
-        return k
+        # Remplissage - même algorithme que dans basic_loops
+        for j in range(nclasses):
+            for k in range(nclasses):
+                v_target = v_new[j, k].item()
 
+                # Chercher k_target_low tel que v[k_target_low] <= v_target < v[k_target_low+1]
+                k_target_low = nclasses - 1  # Valeur par défaut (overflow)
+
+                for i in range(nclasses - 1):
+                    if v[i] <= v_target < v[i + 1]:
+                        k_target_low = i
+                        break
+
+                k_target_high = min(k_target_low + 1, nclasses - 1)
+
+                # Calcul de la fraction (interpolation linéaire)
+                if k_target_low == k_target_high:
+                    # Une seule classe de destination
+                    frac = 1.0
+                else:
+                    # Deux classes: distribution proportionnelle
+                    v_low = v[k_target_low].item()
+                    v_high = v[k_target_high].item()
+
+                    if abs(v_high - v_low) > 1e-30:
+                        frac = (v_high - v_target) / (v_high - v_low)
+                        frac = max(0.0, min(1.0, frac))
+                    else:
+                        frac = 1.0
+
+                # Stockage
+                k_low[j, k] = k_target_low
+                k_high[j, k] = k_target_high
+                frac_low[j, k] = frac
+
+        # Validation
+        assert torch.all(k_low >= 0) and torch.all(k_low < nclasses), "k_low hors limites"
+        assert torch.all(k_high >= 0) and torch.all(k_high < nclasses), "k_high hors limites"
+        assert torch.all(frac_low >= -1e-6), f"frac_low < 0: min={frac_low.min()}"
+        assert torch.all(frac_low <= 1.0 + 1e-6), f"frac_low > 1: max={frac_low.max()}"
+
+        return {
+            'k_low': k_low,
+            'k_high': k_high,
+            'frac_low': torch.clamp(frac_low, 0.0, 1.0),
+            'v_new': v_new
+        }
+
+    def _precompute_scatter_indices(self, ncells, nclasses, coag_map):
+        """Précalcul des indices pour scatter_add (version ultra)"""
+        k_low = coag_map['k_low']
+        k_high = coag_map['k_high']
+        frac_low = coag_map['frac_low']
+
+        cell_idx = torch.arange(ncells, device=self.device)[:, None, None]
+        cell_idx = cell_idx.expand(ncells, nclasses, nclasses)
+
+        k_low_exp = k_low[None, :, :].expand(ncells, nclasses, nclasses)
+        k_high_exp = k_high[None, :, :].expand(ncells, nclasses, nclasses)
+
+        flat_idx_low = (cell_idx * nclasses + k_low_exp).flatten()
+        flat_idx_high = (cell_idx * nclasses + k_high_exp).flatten()
+
+        frac_low_exp = frac_low[None, :, :].expand(ncells, nclasses, nclasses)
+        frac_low_flat = frac_low_exp.flatten()
+
+        self._flat_idx_low = flat_idx_low
+        self._flat_idx_high = flat_idx_high
+        self._frac_low_flat = frac_low_flat
 
     def _precompute_geometry(self, grid):
         """Précalcul des propriétés géométriques sur GPU."""
@@ -308,46 +399,151 @@ class oneWay_Leung_Lindset(DummySoot):
 
         return K
 
-    def _coagulation_batched(self, ns, K, coag_map):
+    def _coagulation_semi_vectorized(self, ns, K, coag_map):
         """
-        Coagulation 100% vectorisée
+        Version vectorisée utilisant la coag_map
 
-        Équation:
-        dndt[i] = -Σ_j K[i,j] × ns[i] × ns[j] + Σ_(k,l→i) K[k,l] × ns[k] × ns[l]
+        STRUCTURE:
+        1. PERTE: -n_i × Σ_j K_{ij} × n_j
+        2. GAIN: distribution des collisions via coag_map
+
+        Cette version donne les MÊMES résultats que basic_loops
+        mais est plus rapide (moins de boucles FOR)
         """
         ncells, nclasses = ns.shape
+        dndt = torch.zeros_like(ns)
 
-        # Produits ni × nj
-        ns_i = ns.unsqueeze(2)  # (ncells, nclasses, 1)
-        ns_j = ns.unsqueeze(1)  # (ncells, 1, nclasses)
-        product = ns_i * ns_j   # (ncells, nclasses, nclasses)
+        # ========== TERME DE PERTE ==========
+        # Pour chaque classe i: n_i disparaît en collisant avec toutes les j
+        loss_rate = torch.einsum('cij,cj->ci', K, ns)  # (ncells, nclasses)
+        dndt -= ns * loss_rate
 
-        # Facteur de symétrie (1/2 pour i=j, 1 sinon)
-        mask_diag = torch.eye(nclasses, device=self.device, dtype=self.dtype)
-        symmetry_factor = 0.5 * mask_diag + (1.0 - mask_diag)
+        # ========== TERME DE GAIN ==========
+        # Taux de collision pour toutes les paires (j,k)
+        n_j = ns[:, :, None]  # (ncells, nclasses, 1)
+        n_k = ns[:, None, :]  # (ncells, 1, nclasses)
+        collision_rate = K * n_j * n_k  # (ncells, nclasses, nclasses)
 
-        # Taux de collision
-        rate = K * product * symmetry_factor  # (ncells, nclasses, nclasses)
+        # Facteur 1/2 pour auto-coagulation (diagonale j=k)
+        diag_mask = torch.eye(nclasses, device=self.device, dtype=self.dtype)[None, :, :]
+        collision_rate = collision_rate * (1.0 - 0.5 * diag_mask)
 
-        # Termes de perte
-        loss_i = rate.sum(dim=2)  # Σ_j K[i,j] × ns[i] × ns[j]
-        loss_j = rate.sum(dim=1)  # Σ_i K[i,j] × ns[i] × ns[j]
-        diag_rates = torch.diagonal(rate, dim1=1, dim2=2)
+        # Récupération des indices de destination depuis coag_map
+        k_low = coag_map['k_low']  # (nclasses, nclasses)
+        k_high = coag_map['k_high']  # (nclasses, nclasses)
+        frac_low = coag_map['frac_low']  # (nclasses, nclasses)
 
-        total_loss = loss_i + loss_j - diag_rates
+        # Distribution du gain dans les classes de destination
+        # Boucle FOR simplifiée (peut être optimisée avec scatter_add si besoin)
+        for j in range(nclasses):
+            for k in range(j, nclasses):  # k >= j pour éviter double comptage
+                i_low = k_low[j, k].item()
+                i_high = k_high[j, k].item()
+                frac = frac_low[j, k].item()
 
-        # Termes de gain
-        dndt = -total_loss
+                rate = collision_rate[:, j, k]  # (ncells,)
 
-        # Redistribution des particules coagulées
-        rate_flat = rate.view(ncells, -1)
-        coag_map_3d = coag_map.flatten().expand(ncells, -1)
+                # Ajouter aux classes de destination
+                dndt[:, i_low] += frac * rate
+                if i_high != i_low:
+                    dndt[:, i_high] += (1.0 - frac) * rate
 
-        dndt.scatter_add_(1, coag_map_3d, rate_flat)
+        return dndt
+
+    # ==================== COAGULATION (BASIC LOOPS - RÉFÉRENCE) ====================
+    def _coagulation_basic_loops(self, ns, K, coag_map):
+        """
+        Version avec boucles FOR - RÉFÉRENCE pour validation
+        Garde cette méthode pour debug!
+        """
+        ncells, nclasses = ns.shape
+        dndt = torch.zeros_like(ns)
+
+        v = self.m_class / self.RHO_SOOT
+
+        for icell in range(ncells):
+            n = ns[icell, :]
+            K_cell = K[icell, :, :]
+
+            # PERTE
+            for i in range(nclasses):
+                loss_i = 0.0
+                for j in range(nclasses):
+                    loss_i += K_cell[i, j] * n[j]
+                dndt[icell, i] -= n[i] * loss_i
+
+            # GAIN
+            for j in range(nclasses):
+                for k in range(j, nclasses):
+                    v_new = v[j] + v[k]
+
+                    k_target_low = 0
+                    for i in range(nclasses - 1):
+                        if v[i] <= v_new < v[i + 1]:
+                            k_target_low = i
+                            break
+                    else:
+                        k_target_low = nclasses - 1
+
+                    k_target_high = min(k_target_low + 1, nclasses - 1)
+
+                    if k_target_low == k_target_high:
+                        frac_low = 1.0
+                    else:
+                        v_low = v[k_target_low]
+                        v_high = v[k_target_high]
+                        frac_low = (v_high - v_new) / (v_high - v_low)
+                        frac_low = max(0.0, min(1.0, frac_low))
+
+                    if j == k:
+                        rate = 0.5 * K_cell[j, k] * n[j] * n[k]
+                    else:
+                        rate = K_cell[j, k] * n[j] * n[k]
+
+                    dndt[icell, k_target_low] += frac_low * rate
+                    if k_target_high != k_target_low:
+                        dndt[icell, k_target_high] += (1.0 - frac_low) * rate
 
         return dndt
 
 
+    def _coagulation_ultra_optimized(self, ns, K, coag_map):
+        """
+        Version ULTRA optimisée – conservative
+        Aucun for-loop, aucun recalcul d'indices
+        """
+        ncells, nclasses = ns.shape
+
+        # =========================
+        # COLLISION UNIQUE j <= k
+        # =========================
+        n_j = ns[:, :, None]
+        n_k = ns[:, None, :]
+
+        collision_rate = K * n_j * n_k
+        collision_rate = collision_rate * self._triu_mask_coag[None, :, :]
+
+        # =========================
+        # PERTE
+        # =========================
+        loss_j = torch.sum(collision_rate, dim=2)
+        loss_k = torch.sum(collision_rate, dim=1)
+
+        dndt = -loss_j - loss_k
+
+        # =========================
+        # GAIN (scatter)
+        # =========================
+        collision_flat = collision_rate.flatten()
+
+        values_low = collision_flat * self._frac_low_flat
+        values_high = collision_flat * (1.0 - self._frac_low_flat)
+
+        dndt_flat = dndt.reshape(-1)
+        dndt_flat.scatter_add_(0, self._flat_idx_low, values_low)
+        dndt_flat.scatter_add_(0, self._flat_idx_high, values_high)
+
+        return dndt
 
     # ==================== INTÉGRATION PRINCIPALE ====================
     def computeIntegratedNs(self, grid, dt):
@@ -368,7 +564,7 @@ class oneWay_Leung_Lindset(DummySoot):
             dn_nucleation = self.nucleation_LL(grid)
             dn_growth = self.growth_LL(ns, grid)
             dn_oxyd = self.oxidation_LL(ns, grid)
-            dn_coag = self._coagulation_batched(ns, K, self.coag_map)
+            dn_coag = self._coagulation_ultra_optimized(ns, K, self.coag_map)
 
             return dn_nucleation + dn_growth + dn_oxyd + dn_coag
 

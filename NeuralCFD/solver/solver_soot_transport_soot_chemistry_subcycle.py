@@ -24,7 +24,6 @@ class solver(DummySolver):
         self.history['S'] = list(self.grid.S.detach().clone().cpu().numpy())
         self.history['class_edges'] = list(self.grid.classEdges.detach().clone().cpu().numpy())
         self.history['mean_particule_volume'] = list(self.grid.meanParticuleVolume.detach().clone().cpu().numpy())
-        self.history['section_size'] = list(self.grid.sectionSize.detach().clone().cpu().numpy())
 
     def oneStep(self, dt):
         pass

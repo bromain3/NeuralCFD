@@ -6,7 +6,7 @@ class DummySoot(ABC):
 
     @abstractmethod
     def computeIntegratedNs(self, grid, dt):
-       raise NotImplementedError('Any soot class inheriting from DummySoot must implement a blabla method.')
+       raise NotImplementedError('Any soot class inheriting from DummySoot must implement a computeIntegratedNs method.')
 
 
     def soot(self, dt, grid, thermo, bc):

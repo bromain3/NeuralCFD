@@ -282,6 +282,7 @@ class grid:
         self.nclasses = sectionalParams['nclasses']
 
         spacing = sectionalParams.get('spacing', 'log')  # 'log' par défaut
+        self.spacing = spacing
 
         # Volumes min / max
         v_min = (torch.pi / 6.0) * d_min ** 3
@@ -322,14 +323,11 @@ class grid:
                 "Use 'log' or 'linear'."
             )
 
-        # Largeur de section
-        dv_k = v_edges[1:] - v_edges[:-1]
 
         # Stockage
         self.classEdges = v_edges
         self.meanParticuleVolume = v_k
         self.meanParticuleSurface = torch.pi * torch.pow(6 * self.meanParticuleVolume / torch.pi, 2.0 / 3.0)
-        self.sectionSize = dv_k
 
 
 

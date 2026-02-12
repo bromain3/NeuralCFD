@@ -5,6 +5,12 @@ from NeuralCFD.transport.AUSM import AUSMFlux
 from NeuralCFD.transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.transport.rusanov import rusanovFlux
 from NeuralCFD.soot_chemistry.oneWay_Leung_Lindset import oneWay_Leung_Lindset
+from NeuralCFD.soot_chemistry.growth.LeungLindset import LeungLindset as growthLL
+from NeuralCFD.soot_chemistry.nucleation.LeungLindset import LeungLindset as nucLL
+from NeuralCFD.soot_chemistry.oxidation.LeungLindset import LeungLindset as oxiLL
+from NeuralCFD.soot_chemistry.coagulation.Fuchs import Fuchs
+from NeuralCFD.soot_chemistry.coagulation.FreeMolecular import FreeMolecular
+from NeuralCFD.soot_chemistry.SootModel import SootModel
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
 import NeuralCFD.solver.solver_transport_chemistry as s
@@ -28,12 +34,12 @@ if __name__ == "__main__":
         Y = {'CH4': phi * mch4_mo2_st * 2 * MMO2, 'O2': 2 * MMO2, 'N2': 2 * MMO2 * O2_N2}
         return (Y)
 
-    device = 'cuda:0'
+    device = 'cpu'
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
 
-    ncells = 1
+    ncells = 10
     nclasses = 10
     th_file = r'../input_data/gri30.yaml'
     thermo = NeuralCFD.thermo.vectorized_thermo.thermo(th_file, device=device, dtype=dtype)
@@ -74,7 +80,9 @@ if __name__ == "__main__":
     #chem = canteraChem(th_file, ncells)
     #chem = canteraChemMultiproc(th_file, ncells, nproc=10)
     #solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
-    sootSolver = oneWay_Leung_Lindset(grid, thermo)
+    #sootSolver = oneWay_Leung_Lindset(grid, thermo)
+    sootSolver = SootModel(nucLL, oxiLL, growthLL, FreeMolecular, grid, thermo)
+
     #solver = st.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/test', initialGridTemperature=T0)
     solver = sts.solver(grid, thermo, transportFlux, sootSolver, bc, U0, savingInterval=1, savingPath='../simulation_results/test', initialGridTemperature=T0)
     #solver = snn.solver('../input_data/chem_models/export_PYTHON_const_pressure.pln' ,grid, thermo, bc, U0, savingInterval=10, savingPath='../data', reactorModel='cst_p')
@@ -82,14 +90,14 @@ if __name__ == "__main__":
     # Total number of particles per unit volume #/m3
 
     # Masse d'une particule dans une section donnée (kg)
-    m_class = grid.meanParticuleVolume * 1800
+    m_class = grid.meanParticuleVolume * SootModel.RHO_SOOT
     ns = U0[3 + grid.nspecies:, :].T
 
-    M0_prev = torch.sum(ns, dim=1).item()
-    M1_prev = torch.sum(ns * m_class, dim=1).item()
+    M0_prev = torch.sum(ns, dim=1)[0]
+    M1_prev = torch.sum(ns * m_class, dim=1)[0]
     solver.solve(0.0005, 100, 0.95, 'sectional.json')
-    M0 = torch.sum(grid.cells.ns, dim=1).item()
-    M1 = torch.sum(grid.cells.ns * m_class, dim=1).item()
+    M0 = torch.sum(grid.cells.ns, dim=1)[0]
+    M1 = torch.sum(grid.cells.ns * m_class, dim=1)[0]
 
 
     print(f'number of particules before coagulation = {M0_prev:.5e} | number of particules after coagulation = {M0:.5e}')
@@ -104,9 +112,9 @@ if __name__ == "__main__":
     #post_proc.plotTemporalSootEvolution2D(0)
     #post_proc.plotTemporalSootEvolution3D(0, y_axis='log_size')
     #post_proc.plotSpatialSootEvolutionAnimated3D(y_axis='log_size')
-    #for i in range(nclasses):
-        #post_proc.plotSnapchot(f'N_{i}', -1)
-        #post_proc.animateField(f'N_{i}')
+    for i in range(nclasses):
+        post_proc.plotSnapchot(f'N_{i}', -1)
+        post_proc.animateField(f'N_{i}')
     #post_proc.plotVariables(['T', 'P'], 0)
     #post_proc.animateField('P')
     #post_proc.plotVariable('P', 0)

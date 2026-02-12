@@ -5,6 +5,13 @@ from NeuralCFD.soot_transport.AUSMPlusUp import AUSMPlusUpFlux
 from NeuralCFD.soot_transport.rusanov import rusanovFlux
 from NeuralCFD.soot_chemistry.FrenklachetWang_Leung_nucleation import FrenklachetWang_Leung_nucleation
 from NeuralCFD.soot_chemistry.oneWay_Leung_Lindset import oneWay_Leung_Lindset
+from NeuralCFD.soot_chemistry.growth.LeungLindset import LeungLindset as growthLL_coarse
+from NeuralCFD.soot_chemistry.growth.LeungLindset import LeungLindset as growthLL
+from NeuralCFD.soot_chemistry.nucleation.LeungLindset import LeungLindset as nucLL
+from NeuralCFD.soot_chemistry.oxidation.LeungLindset import LeungLindset as oxiLL
+from NeuralCFD.soot_chemistry.coagulation.Fuchs import Fuchs
+from NeuralCFD.soot_chemistry.coagulation.FreeMolecular import FreeMolecular
+from NeuralCFD.soot_chemistry.SootModel import SootModel
 from NeuralCFD.soot_chemistry.FrenklachetWang_Leung_nucleation_CPU import FrenklachetWang_Leung_nucleation_CPU
 import NeuralCFD.solver.solver_soot_transport_soot_chemistry as s
 import NeuralCFD.solver.solver_soot_transport_soot_chemistry_subcycle as ssub
@@ -35,7 +42,7 @@ if __name__ == "__main__":
     nclasses = 40
 
     th_file = r'../../input_data/gri30.yaml'
-    field_path = '../../simulation_results/soot_model_validation/F_XU_comparison_cantera_soot_continued_2.json'
+    field_path = '../../simulation_results/soot_model_validation/F_XU_comparison_cantera_soot_sootlib.json'
 
 
     ox_inflow_mdot = 139.2 * 1e-6
@@ -47,7 +54,7 @@ if __name__ == "__main__":
     inflow_P = 101325.0
 
     soot_d_min = 1.0e-9
-    soot_d_max = 200.0e-9
+    soot_d_max = 10_000.0e-9
 
     #############################################################
     ########## check if grid is smaller than particles ##########
@@ -92,16 +99,17 @@ if __name__ == "__main__":
 
 
     #sootSolver = FrenklachetWang_Leung_nucleation(grid, thermo)
-    sootSolver = oneWay_Leung_Lindset(grid, thermo)
+    #sootSolver = oneWay_Leung_Lindset(grid, thermo)
+    sootSolver = SootModel(nucLL, oxiLL, growthLL_coarse, FreeMolecular, grid, thermo)
     sootTransport = AUSMPlusUpFlux() #rusanovFlux()
 
-    solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U, savingInterval=800, simdt=1e-6
+    solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U, savingInterval=1, simdt=1e-5
                       , savingPath='../../simulation_results/soot_model_validation')
 
-    solver.solve(10 * 0.0025, 30_000, 0.95, 'F_XU_comparison_cantera_soot_continued_3.json')
+    solver.solve(10 * 0.0025, 10, 1.5, 'F_XU_comparison_cantera_soot_sootlib_new_growth.json')
 
 
-    post_proc = pp.PostProcessing('../../simulation_results/soot_model_validation', 'F_XU_comparison_cantera_soot_continued_3.json')
+    post_proc = pp.PostProcessing('../../simulation_results/soot_model_validation', 'F_XU_comparison_cantera_soot_sootlib_new_growth.json')
     if nclasses > 0:
         post_proc.animateField('T')
         post_proc.plotSpatialSootEvolution2D(-1)

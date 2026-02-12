@@ -162,7 +162,7 @@ class PostProcessing:
 
         x_coords = self.simData['x']
         class_edges_nm3 = np.array(self.simData['class_edges']) * 1e27
-        section_size_nm3 = np.array(self.simData['section_size']) * 1e27
+        section_size_nm3 = np.array(self.simData['mean_particule_volume']) * 1e27
         n_classes = len(class_edges_nm3) - 1
 
         fig = plt.figure(figsize=(12, 8))
@@ -231,7 +231,7 @@ class PostProcessing:
 
         time_coords = self.simData['t']
         class_edges_nm3 = np.array(self.simData['class_edges']) * 1e27
-        section_size_nm3 = np.array(self.simData['section_size']) * 1e27
+        section_size_nm3 = np.array(self.simData['mean_particule_volume']) * 1e27
         n_classes = len(class_edges_nm3) - 1
 
         fig = plt.figure(figsize=(12, 8))
@@ -305,7 +305,7 @@ class PostProcessing:
         x_coords = self.simData['x']
         time_coords = self.simData['t']
         class_edges_nm3 = np.array(self.simData['class_edges']) * 1e27
-        section_size_nm3 = np.array(self.simData['section_size']) * 1e27
+        section_size_nm3 = np.array(self.simData['mean_particule_volume']) * 1e27
         n_classes = len(class_edges_nm3) - 1
 
         # Choisir les valeurs de l'axe Y selon l'option
