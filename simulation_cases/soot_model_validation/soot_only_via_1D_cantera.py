@@ -210,7 +210,7 @@ if __name__ == "__main__":
     sootSolver = SootModel(nucLIN, oxiLL, growthLIN, FreeMolecular, grid, thermo)
     sootTransport = AUSMPlusUpFlux()  # rusanovFlux()
 
-    solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U0, savingInterval=160, simdt=1e-5
+    solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U0, savingInterval=200, simdt=1e-5
                          , savingPath='../../simulation_results/soot_model_validation', initialGridTemperature=T0)
 
     solver.solve(50 * 0.0025, 30_000, 0.9, 'ISF_laminar_premixed_flame2_C2H4_phi2p34.json')

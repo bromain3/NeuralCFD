@@ -12,10 +12,6 @@ class DummyGrowth(ABC):
         # mBins[k] = volume[k] * RHO_SOOT
         self.mBins = self.meanParticuleVolume * self.RHO_SOOT  # kg
 
-        # Taille des sections (différence de masse entre bins consécutifs)
-        # sectionSize[k] = mBins[k+1] - mBins[k]
-        self.sectionSize = self.mBins[1:] - self.mBins[:-1]  # kg
-
     @abstractmethod
     def growthRate(self, ns, ys, rhos, Ts):
         """
@@ -33,36 +29,40 @@ class DummyGrowth(ABC):
 
     def dndt(self, ns, ys, rhos, Ts):
         """
-        Calcul du terme source de croissance Sgrw équivalent au code C
+        Calcul du terme source de croissance Sgrw équivalent au code C++ SECT
 
         :param ns: [batch, nsoot] - concentrations en nombre de particules (#/m³)
+        :param ys: [batch, n_species] - fractions massiques des espèces gazeuses
+        :param rhos: [batch] - densité du mélange gazeux (kg/m³)
+        :param Ts: [batch] - température (K)
         :return: dndt [batch, nsoot] - terme source (#/m³/s)
         """
+        nsoot = ns.shape[1]
+
         # Initialisation
         dndt = torch.zeros_like(ns)  # [batch, nsoot]
+
+        # Taux de croissance massique (kg/m²/s)
+        kGrw = self.growthRate(ns, ys, rhos, Ts)  # [batch]
 
         # Surface totale par unité de volume pour chaque classe
         # Am2m3[k] = meanParticuleSurface[k] * ns[k]  (m²/m³)
         Am2m3 = self.meanParticuleSurface[None, :] * ns  # [batch, nsoot]
 
-        # Taux de croissance volumétrique (m³/s)
-        kGrw = self.growthRate(ns, ys, rhos, Ts)  # [batch, 1] ou scalaire
+        # k=0: première classe (sortie uniquement)
+        k = 0
+        term = kGrw * Am2m3[:, k] / (self.mBins[k + 1] - self.mBins[k])  # [batch]
+        dndt[:, k] = -term
 
-        # Calcul vectorisé des termes de flux
-        # term[k] = kGrw_mass * Am2m3[k] / sectionSize[k] pour k=0..nsoot-2
-        term = kGrw[:, None] * Am2m3[:, :-1] / self.sectionSize[None, :]  # [batch, nsoot-1]
+        # k=1 à nsoot-2: classes intermédiaires (entrée depuis k-1, sortie vers k+1)
+        for k in range(1, nsoot - 1):
+            dndt[:, k] = term  # entrée depuis k-1
+            term = kGrw * Am2m3[:, k] / (self.mBins[k + 1] - self.mBins[k])  # [batch]
+            dndt[:, k] -= term  # sortie vers k+1
 
-        # Première classe (k=0) : sortie uniquement
-        dndt[:, 0] = -term[:, 0]
-
-        # Classes intermédiaires (k=1..nsoot-2) : entrée depuis k-1, sortie vers k+1
-        if ns.shape[1] > 2:  # s'il y a des bins intermédiaires
-            dndt[:, 1:-1] = term[:, :-1] - term[:, 1:]
-
-        # Dernière classe (k=nsoot-1) :
-        # - entrée depuis k-1 : term[nsoot-2]
-        # - croissance interne : kGrw_mass * Am2m3[nsoot-1] / mBins[nsoot-1]
-        dndt[:, -1] = term[:, -1] + kGrw * Am2m3[:, -1] / self.mBins[-1]  # le fait que les particules qui croissent dans la dernière classe augmente le nombre de particules modélise implicitement une fragmentation des grosses particules
+        # k=nsoot-1: dernière classe (entrée depuis k-1 + croissance interne)
+        k = nsoot - 1
+        dndt[:, k] = term + kGrw * Am2m3[:, k] / self.mBins[k]
 
         # ajouter une rétroaction sur tous les autres paramettres pour avoir un modèle complet
         pass

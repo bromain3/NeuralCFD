@@ -14,9 +14,6 @@ class DummyOxidation(ABC):
         # mBins[k] = volume[k] * RHO_SOOT
         self.mBins = self.meanParticuleVolume * self.RHO_SOOT  # kg
 
-        # Taille des sections (différence de masse entre bins consécutifs)
-        # sectionSize[k] = mBins[k] - mBins[k-1] pour k=1..nsoot-1
-        self.sectionSize = self.mBins[1:] - self.mBins[:-1]  # kg, shape: [nsoot-1]
 
     @abstractmethod
     def oxidationRate(self, ns, ys, rhos, Ts):
@@ -40,36 +37,41 @@ class DummyOxidation(ABC):
 
     def dndt(self, ns, ys, rhos, Ts):
         """
-        Calcul du terme source d'oxydation Soxi équivalent au code C
+        Calcul du terme source d'oxydation Soxi équivalent au code C++ SECT
+        L'oxydation crée une vélocité négative dans le domaine de taille (les particules rétrécissent)
 
         :param ns: [batch, nsoot] - concentrations en nombre de particules (#/m³)
+        :param ys: [batch, n_species] - fractions massiques des espèces gazeuses
+        :param rhos: [batch] - densité du mélange gazeux (kg/m³)
+        :param Ts: [batch] - température (K)
         :return: dndt [batch, nsoot] - terme source (#/m³/s)
         """
+        nsoot = ns.shape[1]
+
         # Initialisation
         dndt = torch.zeros_like(ns)  # [batch, nsoot]
+
+        # Taux d'oxydation massique (kg/m²/s)
+        kOxi = self.oxidationRate(ns, ys, rhos, Ts)  # [batch]
 
         # Surface totale par unité de volume pour chaque classe
         # Am2m3[k] = meanParticuleSurface[k] * ns[k]  (m²/m³)
         Am2m3 = self.meanParticuleSurface[None, :] * ns  # [batch, nsoot]
 
-        # Taux d'oxydation volumétrique (m³/s)
-        kOxi = self.oxidationRate(ns, ys, rhos, Ts)  # [batch, 1] ou scalaire
+        # k=nsoot-1: dernière classe (sortie uniquement)
+        k = nsoot - 1
+        term = kOxi * Am2m3[:, k] / (self.mBins[k] - self.mBins[k - 1])  # [batch]
+        dndt[:, k] = -term
 
-        # Calcul vectorisé des termes de flux (oxydation va de k vers k-1)
-        # term[k] = kOxi_mass * Am2m3[k] / sectionSize[k-1] pour k=1..nsoot-1
-        # Note: sectionSize[k-1] = mBins[k] - mBins[k-1]
-        term = kOxi[:, None] * Am2m3[:, 1:] / self.sectionSize[None, :]  # [batch, nsoot-1]
+        # k=nsoot-2 à k=1: classes intermédiaires (entrée depuis k+1, sortie vers k-1)
+        # Boucle descendante de nsoot-2 vers 1
+        for k in range(nsoot - 2, 0, -1):
+            dndt[:, k] = term  # entrée depuis k+1
+            term = kOxi * Am2m3[:, k] / (self.mBins[k] - self.mBins[k - 1])  # [batch]
+            dndt[:, k] -= term  # sortie vers k-1
 
-        # Dernière classe (k=nsoot-1) : sortie uniquement
-        dndt[:, -1] = -term[:, -1]
-
-        # Classes intermédiaires (k=nsoot-2..1) : entrée depuis k+1, sortie vers k-1
-        if ns.shape[1] > 2:  # s'il y a des bins intermédiaires
-            dndt[:, 1:-1] = term[:, 1:] - term[:, :-1]
-
-        # Première classe (k=0) :
-        # - entrée depuis k+1 : term[0]
-        # - destruction interne : -kOxi_mass * Am2m3[0] / mBins[0]
-        dndt[:, 0] = term[:, 0] - kOxi * Am2m3[:, 0] / self.mBins[0]
+        # k=0: première classe (entrée depuis k+1 - destruction interne)
+        k = 0
+        dndt[:, k] = term - kOxi * Am2m3[:, k] / self.mBins[k]
 
         return dndt
