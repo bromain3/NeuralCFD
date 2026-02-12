@@ -293,6 +293,7 @@ class grid:
             # Classes logarithmiques
             # =========================
             r = (v_max / v_min) ** (1.0 / self.nclasses)
+            self.binGrowthFactor = r
             k = torch.arange(0, self.nclasses + 1,
                              device=self.device,
                              dtype=self.dtype)
