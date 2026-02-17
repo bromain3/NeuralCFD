@@ -39,9 +39,6 @@ class DummyGrowth(ABC):
         """
         nsoot = ns.shape[1]
 
-        # Initialisation
-        dndt = torch.zeros_like(ns)  # [batch, nsoot]
-
         # Taux de croissance massique (kg/m²/s)
         kGrw = self.growthRate(ns, ys, rhos, Ts)  # [batch]
 
@@ -49,20 +46,22 @@ class DummyGrowth(ABC):
         # Am2m3[k] = meanParticuleSurface[k] * ns[k]  (m²/m³)
         Am2m3 = self.meanParticuleSurface[None, :] * ns  # [batch, nsoot]
 
+        # Calcul des termes de flux entre classes
+        # term[k] = kGrw * Am2m3[k] / (mBins[k+1] - mBins[k])
+        dm = self.mBins[1:] - self.mBins[:-1]  # [nsoot-1]
+        term = kGrw[:, None] * Am2m3[:, :-1] / dm[None, :]  # [batch, nsoot-1]
+
+        # Initialisation
+        dndt = torch.zeros_like(ns)  # [batch, nsoot]
+
         # k=0: première classe (sortie uniquement)
-        k = 0
-        term = kGrw * Am2m3[:, k] / (self.mBins[k + 1] - self.mBins[k])  # [batch]
-        dndt[:, k] = -term
+        dndt[:, 0] = -term[:, 0]
 
         # k=1 à nsoot-2: classes intermédiaires (entrée depuis k-1, sortie vers k+1)
-        for k in range(1, nsoot - 1):
-            dndt[:, k] = term  # entrée depuis k-1
-            term = kGrw * Am2m3[:, k] / (self.mBins[k + 1] - self.mBins[k])  # [batch]
-            dndt[:, k] -= term  # sortie vers k+1
+        dndt[:, 1:-1] = term[:, :-1] - term[:, 1:]
 
         # k=nsoot-1: dernière classe (entrée depuis k-1 + croissance interne)
-        k = nsoot - 1
-        dndt[:, k] = term + kGrw * Am2m3[:, k] / self.mBins[k]
+        dndt[:, -1] = term[:, -1] + kGrw * Am2m3[:, -1] / self.mBins[-1]
 
         # ajouter une rétroaction sur tous les autres paramettres pour avoir un modèle complet
         pass

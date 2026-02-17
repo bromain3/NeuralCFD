@@ -303,25 +303,11 @@ class grid:
             # volume moyen géométrique
             v_k = torch.sqrt(v_edges[:-1] * v_edges[1:])
 
-        elif spacing == 'linear':
-            # =========================
-            # Classes linéaires en volume
-            # =========================
-            dv = (v_max - v_min) / self.nclasses
-
-            k = torch.arange(0, self.nclasses + 1,
-                             device=self.device,
-                             dtype=self.dtype)
-
-            v_edges = v_min + k * dv
-
-            # volume moyen arithmétique
-            v_k = 0.5 * (v_edges[:-1] + v_edges[1:])
 
         else:
             raise ValueError(
                 f"Unknown sectional spacing '{spacing}'. "
-                "Use 'log' or 'linear'."
+                "Use 'log' as it is the only implemented spacing for the moment."
             )
 
 

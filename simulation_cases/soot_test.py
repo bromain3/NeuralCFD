@@ -10,6 +10,7 @@ from NeuralCFD.soot_chemistry.nucleation.LeungLindset import LeungLindset as nuc
 from NeuralCFD.soot_chemistry.oxidation.LeungLindset import LeungLindset as oxiLL
 from NeuralCFD.soot_chemistry.coagulation.Fuchs import Fuchs
 from NeuralCFD.soot_chemistry.coagulation.FreeMolecular import FreeMolecular
+from NeuralCFD.soot_chemistry.coagulation.FreeMolecular_vect import FreeMolecular_vect
 from NeuralCFD.soot_chemistry.SootModel import SootModel
 from NeuralCFD.chemestry.canteraChem import canteraChem
 from NeuralCFD.chemestry.canteraChemMultiproc import canteraChemMultiproc
@@ -81,7 +82,9 @@ if __name__ == "__main__":
     #chem = canteraChemMultiproc(th_file, ncells, nproc=10)
     #solver = s.solver(grid, thermo, transportFlux, chem, bc, U0, savingInterval=10, savingPath='data', reactorModel='cst_rho', initialGridTemperature=T0)
     #sootSolver = oneWay_Leung_Lindset(grid, thermo)
-    sootSolver = SootModel(nucLL, oxiLL, growthLL, FreeMolecular, grid, thermo)
+    #sootSolver = SootModel(nucLL, oxiLL, growthLL, FreeMolecular, grid, thermo)
+    sootSolver = SootModel(nucLL, oxiLL, growthLL, FreeMolecular_vect, grid, thermo)
+
 
     #solver = st.solver(grid, thermo, transportFlux, bc, U0, savingInterval=10, savingPath='../simulation_results/test', initialGridTemperature=T0)
     solver = sts.solver(grid, thermo, transportFlux, sootSolver, bc, U0, savingInterval=1, savingPath='../simulation_results/test', initialGridTemperature=T0)
@@ -119,3 +122,5 @@ if __name__ == "__main__":
     #post_proc.animateField('P')
     #post_proc.plotVariable('P', 0)
     #post_proc.animateField('Y_C2H2')
+    # 9.863e19 for N5
+    # 9.89658e+19 Ntot

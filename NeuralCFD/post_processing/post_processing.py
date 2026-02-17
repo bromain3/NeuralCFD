@@ -506,7 +506,7 @@ class PostProcessing:
         plt.ylabel(variable)
         plt.show()
 
-    def plotSootVolumeFraction(self, timeidx, log_scale=False, unit='ppm'):
+    def plotSootVolumeFraction(self, timeidx, log_scale=False, unit='ppm', expData=None):
         """
         Trace la fraction volumique de suies pour un instant de temps donné
 
@@ -519,6 +519,8 @@ class PostProcessing:
         unit : str
             'fraction' : afficher en fraction volumique
             'ppm' : afficher en parties par million
+        expData : dict
+            Dictionaire contenant des couples {clée: {'z':[], 'y':[]}} de données expérimentales
         """
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
@@ -550,6 +552,14 @@ class PostProcessing:
         else:
             ax.plot(x_coords, fv_total, 'b-', linewidth=2)
 
+        if expData is not None:
+            for keys, values in expData.items():
+                if unit == 'ppm':
+                    ax.scatter(values['z'], np.array(values['y']) * 1e6, label=keys)
+                else:
+                    ax.scatter(values['z'], values['y'], label=keys)
+
+        fig.legend()
         ax.set_ylabel(ylabel)
         ax.set_xlabel('Position x (m)')
         ax.set_title(f'Fraction volumique de suies à t = {self.simData["t"][timeidx]:.4e} s')

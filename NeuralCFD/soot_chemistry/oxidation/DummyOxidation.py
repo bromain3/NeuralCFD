@@ -37,7 +37,7 @@ class DummyOxidation(ABC):
 
     def dndt(self, ns, ys, rhos, Ts):
         """
-        Calcul du terme source d'oxydation Soxi équivalent au code C++ SECT
+        Calcul du terme source d'oxydation Soxi équivalent au code C++ SECT (VERSION VECTORISÉE)
         L'oxydation crée une vélocité négative dans le domaine de taille (les particules rétrécissent)
 
         :param ns: [batch, nsoot] - concentrations en nombre de particules (#/m³)
@@ -58,20 +58,22 @@ class DummyOxidation(ABC):
         # Am2m3[k] = meanParticuleSurface[k] * ns[k]  (m²/m³)
         Am2m3 = self.meanParticuleSurface[None, :] * ns  # [batch, nsoot]
 
+        # Calcul vectorisé de term pour toutes les classes
+        # term[k] = kOxi * Am2m3[k] / (mBins[k] - mBins[k-1])
+        # Pour k=1 à nsoot-1
+        delta_mBins = self.mBins[1:] - self.mBins[:-1]  # [nsoot-1]
+        term = kOxi[:, None] * Am2m3[:, 1:] / delta_mBins[None, :]  # [batch, nsoot-1]
+
         # k=nsoot-1: dernière classe (sortie uniquement)
-        k = nsoot - 1
-        term = kOxi * Am2m3[:, k] / (self.mBins[k] - self.mBins[k - 1])  # [batch]
-        dndt[:, k] = -term
+        dndt[:, -1] = -term[:, -1]
 
         # k=nsoot-2 à k=1: classes intermédiaires (entrée depuis k+1, sortie vers k-1)
-        # Boucle descendante de nsoot-2 vers 1
-        for k in range(nsoot - 2, 0, -1):
-            dndt[:, k] = term  # entrée depuis k+1
-            term = kOxi * Am2m3[:, k] / (self.mBins[k] - self.mBins[k - 1])  # [batch]
-            dndt[:, k] -= term  # sortie vers k-1
+        # entrée depuis k+1 : term[k] (qui correspond à term calculé pour k+1 dans la boucle originale)
+        # sortie vers k-1 : -term[k-1] (qui correspond au term calculé pour k dans la boucle originale)
+        if nsoot > 2:
+            dndt[:, 1:-1] = term[:, 1:] - term[:, :-1]
 
         # k=0: première classe (entrée depuis k+1 - destruction interne)
-        k = 0
-        dndt[:, k] = term - kOxi * Am2m3[:, k] / self.mBins[k]
+        dndt[:, 0] = term[:, 0] - kOxi * Am2m3[:, 0] / self.mBins[0]
 
         return dndt

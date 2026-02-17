@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import torch
+import math
 
 
 class DummyCoagulation(ABC):
@@ -20,7 +21,7 @@ class DummyCoagulation(ABC):
         self.binGrowthFactor = grid.binGrowthFactor
 
         # Précalcul de 1/ln(F) pour localiser les bins cibles
-        self.ilnF = 1.0 / torch.log(self.binGrowthFactor)
+        self.ilnF = 1.0 / math.log(self.binGrowthFactor)
 
         # Masse d'une particule dans chaque section (kg)
         # Correspond à mBins dans sootlib

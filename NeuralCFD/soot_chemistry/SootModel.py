@@ -13,6 +13,14 @@ class SootModel:
         self.oxidationModel = oxidationModel(grid, thermo, SootModel.RHO_SOOT)
         self.coagulationModel = coagulationModel(grid, SootModel.RHO_SOOT)
 
+        # Intégrateur réutilisable
+        self.integrator = RK45Integrator(
+            lambda ns, t: ns * 0.0,  # dummy, sera remplacé
+            device=grid.device,
+            dtype=grid.dtype,
+            verbose=False
+        )
+
     def computeIntegratedNs(self, grid, dt):
         """
         Intégration RK45 du système de suie
@@ -38,14 +46,11 @@ class SootModel:
             return dn_nucleation + dn_growth + dn_oxyd + dn_coag
 
         # Intégration RK45
-        integrator = RK45Integrator(
-            rhs_soot,
-            device=grid.device,
-            dtype=grid.dtype,
-        )
+        self.integrator.f = rhs_soot
+
 
         ns0 = grid.cells.ns.clone()
-        t_vals, ns_vals = integrator.integrate(ns0, t_span=(0.0, dt))
+        t_vals, ns_vals = self.integrator.integrate(ns0, t_span=(0.0, dt))
         ns_final = ns_vals[-1]
 
         ns_total = torch.clamp(ns_final, min=0.0)
