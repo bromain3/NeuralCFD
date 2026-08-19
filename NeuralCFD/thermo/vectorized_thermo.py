@@ -4,14 +4,14 @@ import torch
 
 class thermo:
 
-    def __init__(self, thermoFilePath, dtype, device):
+    def __init__(self, thermoFilePath, dtype, device, reducedSpeciesSet=None):
 
         self.dtype = dtype
         self.device = device
 
         self.thermoFilePath = thermoFilePath
         yamlFile = tp.yamlParser(self.thermoFilePath)
-        self.thermoProp = yamlFile.populateVectorizedThermoObject(dtype=dtype, device=device)
+        self.thermoProp = yamlFile.populateVectorizedThermoObject(reducedSpeciesSet=reducedSpeciesSet ,dtype=dtype, device=device)
 
     @staticmethod
     def torch_interp(x, xp, fp):

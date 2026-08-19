@@ -12,7 +12,7 @@ from NeuralCFD.soot_chemistry.growth.Lindset import Lindset as growthLIN
 from NeuralCFD.soot_chemistry.nucleation.LeungLindset import LeungLindset as nucLL
 from NeuralCFD.soot_chemistry.nucleation.Lindset import Lindset as nucLIN
 from NeuralCFD.soot_chemistry.oxidation.LeungLindset import LeungLindset as oxiLL
-from NeuralCFD.soot_chemistry.coagulation.Fuchs import Fuchs
+from NeuralCFD.soot_chemistry.coagulation.Fuchs_vect import Fuchs_vect
 from NeuralCFD.soot_chemistry.coagulation.FreeMolecular import FreeMolecular
 from NeuralCFD.soot_chemistry.SootModel import SootModel
 import NeuralCFD.solver.solver_soot_transport_soot_chemistry_subcycle as ssub
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
     solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U0, savingInterval=160, simdt=1e-5, savingPath='../../simulation_results/soot_model_validation')
 
-    solver.solve(50 * 0.0025, 30_000, 1.5, 'F_XU_comparison_cantera_soot_sootlib_lin.json')
+    #solver.solve(50 * 0.0025, 30_000, 1.5, 'F_XU_comparison_cantera_soot_sootlib_lin.json')
 
 
     post_proc = pp.PostProcessing('../../simulation_results/soot_model_validation', 'F_XU_comparison_cantera_soot_sootlib_lin.json')

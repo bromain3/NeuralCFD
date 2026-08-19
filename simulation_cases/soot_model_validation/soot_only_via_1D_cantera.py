@@ -62,11 +62,11 @@ if __name__ == "__main__":
     ######################################
     #### General variables definition ####
     ######################################
-    device = 'cuda:1'
+    device = 'cpu'
     dtype = torch.float64
 
     torch.set_grad_enabled(False)
-    ncells = 5000
+    ncells = 1000
     grid_length = 25.0e-3
     nclasses = 40
 
@@ -84,8 +84,8 @@ if __name__ == "__main__":
     inflow_T = 298.0  # K - température ambiante (à ajuster selon les données expérimentales exactes)
     inflow_P = 101325.0  # Pa - pression atmosphérique
 
-    #soot_d_min = 1.145853e-9 ; soot_d_max = 10_000.0e-9 # size used for LeungLindset model to ensure a nucleation of a particle at exactly 100 particles of carbon (if rho soot = 1800) as stated in the paper
-    soot_d_min = 0.526715e-9 ; soot_d_max = 10_000.0e-9 # size used for Lindset model to ensure a nucleation of a particle at exactly 10 particles of carbon (if rho soot = 1800) as stated in the paper (Naphtalene)
+    #soot_d_min = 1.145853e-9 ; soot_d_max = 10_000.0e-9 # size used for LeungLindset model to ensure a nucleation of a particle at exactly 100 particles of carbon (if rho soot = 1800) and classes=40 as stated in the paper
+    soot_d_min = 0.526715e-9 ; soot_d_max = 10_000.0e-9 # size used for Lindset model to ensure a nucleation of a particle at exactly 10 particles of carbon (if rho soot = 1800) and classes=40 as stated in the paper (Naphtalene)
 
 
     #######################################
@@ -234,22 +234,22 @@ if __name__ == "__main__":
     #######################################
 
     # sootSolver = FrenklachetWang_Leung_nucleation(grid, thermo)
-    sootSolver = SootModel(nucLL, oxiHACA, growthHACA, Fuchs_vect, grid, thermo)
+    sootSolver = SootModel(nucLL, oxiHACA, growthHACA, FreeMolecular_vect, grid, thermo)
     sootTransport = AUSMPlusUpFlux()  # rusanovFlux()
 
     solver = ssub.solver(grid, thermo, sootTransport, sootSolver, bc, U0, savingInterval=200, simdt=1e-5
                          , savingPath='../../simulation_results/soot_model_validation', initialGridTemperature=T0)
     eqRatio = str(equivalence_ratio).replace('.', 'p')
 
-    solver.solve(50 * 0.0025, 30_000, 0.9, f'ISF_laminar_premixed_flame2_C2H4_phi{eqRatio}_10atoms_fuchs_HACA.json')
+    #solver.solve(50 * 0.0025, 30_000, 0.9, f'ISF_laminar_premixed_flame2_C2H4_phi{eqRatio}_10atoms_fuchs_HACA.json')
 
     post_proc = pp.PostProcessing('../../simulation_results/soot_model_validation',
                                   f'ISF_laminar_premixed_flame2_C2H4_phi{eqRatio}_10atoms_fuchs_HACA.json')
     if nclasses > 0:
         #post_proc.animateField('T')
         # post_proc.plotSpatialSootEvolution2D(-1)
-        #post_proc.plotSpatialSootEvolutionAnimated3D(y_axis='log_size')
-        post_proc.plotSootVolumeFraction(-1, log_scale=True, unit='ppm', expData=exp_data[equivalence_ratio])
+        post_proc.plotSpatialSootEvolutionAnimated3D(y_axis='log_size')
+        #post_proc.plotSootVolumeFraction(-1, log_scale=True, unit='ppm', expData=exp_data[equivalence_ratio])
         #post_proc.animateSootVolumeFraction()
     else:
         post_proc.animateField('T')

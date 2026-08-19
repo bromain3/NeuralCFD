@@ -22,6 +22,7 @@ class DummyChemistry(ABC):
             # TODO : for consistency, we can recompute P however for the moment, the least corrections we do to the nn predictions, the least likely it is for it to do wierd shit
             # Rspec_new = vec_th.R_spec_from_Y(Ys_new)
             # p_new = rho * Rspec_new * T_new
+            # TODO: regarder à l'inconsistance entre T, P et rho qui créé peut être les problèmes de prédiction (en plus de tous les autres problèmes)
             rho = grid.cells.rho
             u = grid.cells.u
 

@@ -32,7 +32,7 @@ class LeungLindset(DummyGrowth):
         - G = rSoot × S / ρ_s en m³/s
 
         Retourne:
-            G: (ncells, nclasses) - taux de croissance volumique en m³/s
+            G: (ncells, nclasses) - taux de croissance volumique en kg/m2/s
         """
         #TODO: adapter pour un modèle sectionnel en faisant un calcul par classe pour être plus précis
 

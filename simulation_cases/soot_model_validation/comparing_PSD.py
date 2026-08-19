@@ -6,7 +6,7 @@ from NeuralCFD.soot_chemistry.growth.Lindset import Lindset as growthLIN
 from NeuralCFD.soot_chemistry.nucleation.LeungLindset import LeungLindset as nucLL
 from NeuralCFD.soot_chemistry.nucleation.Lindset import Lindset as nucLIN
 from NeuralCFD.soot_chemistry.oxidation.LeungLindset import LeungLindset as oxiLL
-from NeuralCFD.soot_chemistry.coagulation.Fuchs import Fuchs
+from NeuralCFD.soot_chemistry.coagulation.Fuchs_vect import Fuchs_vect
 from NeuralCFD.soot_chemistry.coagulation.FreeMolecular import FreeMolecular
 from NeuralCFD.soot_chemistry.coagulation.FreeMolecular_vect import FreeMolecular_vect
 from NeuralCFD.soot_chemistry.SootModel import SootModel

@@ -8,6 +8,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 import NeuralCFD.utilities_functions.primitive_converter as pc
 from matplotlib import cm
+import h5py
+
 
 
 # TODO: plot (animated or not) a subpolt with rho, T, P, u and the geometry with a colormap plot to show dx
@@ -20,10 +22,48 @@ class PostProcessing:
 
         self.simData = None
 
-    def __loadData(self, dataPath, caseName):
-        with open(os.path.join(dataPath, caseName), 'r') as f:
-            simData = json.load(f)
-        return (simData)
+    def __loadData(self, dataPath, caseName, group='X'):
+
+        filepath = os.path.join(dataPath, caseName)
+
+        ext = os.path.splitext(caseName)[1]
+
+        # =========================
+        # JSON
+        # =========================
+        if ext == ".json":
+
+            with open(filepath, 'r') as f:
+                simData = json.load(f)
+
+            return simData
+
+        # =========================
+        # HDF5
+        # =========================
+        elif ext in [".h5", ".hdf5"]:
+
+            simData = {}
+
+            with h5py.File(filepath, "r") as f:
+
+                # coordonnées spatiales
+                if "x" in f:
+                    simData["x"] = f["x"][:]
+
+                # groupe X ou Y
+                if group not in f:
+                    raise ValueError(f"Group '{group}' not found in file")
+
+                grp = f[group]
+
+                for key in grp.keys():
+                    simData[key] = grp[key][:]
+
+            return simData
+
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}")
 
     def animateFields(self, fields, variable, save_gif=False):
         simData = []
@@ -110,34 +150,50 @@ class PostProcessing:
         plt.ylabel(var)
         plt.show()
 
-    def animateField(self, variable, save_gif=False):
+    def animateField(self, variable, save_gif=False, logScale=True, logThreshold=1e-28):
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
 
         fig, ax = plt.subplots()
-        graph = ax.plot(self.simData['x'], self.simData[variable][0])[0]
-        min_y = min([min(i) for i in self.simData[variable]])
-        max_y = max([max(i) for i in self.simData[variable]])
-        delta_y = max_y - min_y
-        blank_proportion = 0.05
-        plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
+
+        data = self.simData[variable]
+        if logScale:
+            # clip non-positive / too small values to avoid breaking the log scale
+            data = [np.clip(frame, logThreshold, None) for frame in data]
+
+        if not logScale:
+            graph = ax.plot(self.simData['x'], data[0])[0]
+        else:
+            graph = ax.semilogy(self.simData['x'], data[0])[0]
+
+        min_y = min([min(i) for i in data])
+        max_y = max([max(i) for i in data])
+
+        if not logScale:
+            delta_y = max_y - min_y
+            blank_proportion = 0.05
+            plt.ylim(min_y - blank_proportion * delta_y, max_y + blank_proportion * delta_y)
+        else:
+            blank_proportion = 0.05
+            log_min, log_max = np.log10(min_y), np.log10(max_y)
+            delta_log = log_max - log_min
+            plt.ylim(10 ** (log_min - blank_proportion * delta_log), 10 ** (log_max + blank_proportion * delta_log))
+
         time = self.simData['t'][0]
         plt.title(variable + f' | t = {time}')
 
         def update(frame):
-            # creating a new graph or updating the graph
-            graph.set_ydata(self.simData[variable][frame])
+            graph.set_ydata(data[frame])
             time = self.simData['t'][frame]
             plt.title(variable + f' | t = {time:.6e}')
 
         anim = FuncAnimation(fig, update, frames=len(self.simData['t']), interval=20)
         if save_gif == True:
-            # To save the animation using Pillow as a gif
             writer = animation.PillowWriter(fps=15,
                                             metadata=dict(artist='Me'),
                                             bitrate=1800)
             anim.save(os.path.join(self.dataPath, f'{variable}.gif'), writer=writer)
-        plt.show()  # TODO: remove what is under
+        plt.show()
         # plt.show(block=False)
         # input("Animation terminée — appuie sur Entrée pour continuer...")
         # plt.close(fig)
@@ -229,7 +285,7 @@ class PostProcessing:
         if self.simData is None:
             self.simData = self.__loadData(self.dataPath, self.caseName)
 
-        time_coords = self.simData['t']
+        time_coords = np.array(self.simData['t']) * 1e3  # conversion s → ms
         class_edges_nm3 = np.array(self.simData['class_edges']) * 1e27
         section_size_nm3 = np.array(self.simData['mean_particule_volume']) * 1e27
         n_classes = len(class_edges_nm3) - 1
@@ -237,16 +293,25 @@ class PostProcessing:
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111, projection='3d')
 
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.tick_params(axis='z', which='major', labelsize=12)
+
+        ax.xaxis.label.set_size(14)
+        ax.yaxis.label.set_size(14)
+        ax.zaxis.label.set_size(14)
+
+        ax.title.set_size(16)
+
         # Choisir les valeurs de l'axe Y selon l'option
         if y_axis == 'class':
             y_values = np.arange(n_classes)
-            ylabel = 'Classe de taille'
+            ylabel = 'Classe size'
         elif y_axis == 'size':
             y_values = section_size_nm3
-            ylabel = 'Taille moyenne des suies (nm³)'
+            ylabel = 'Mean soot volume (nm³)'
         elif y_axis == 'log_size':
             y_values = np.log10(section_size_nm3)
-            ylabel = 'log10(Taille moyenne des suies) (nm³)'
+            ylabel = 'log10(Mean soot volume (nm³))'
         else:
             raise ValueError("y_axis doit être 'class', 'size' ou 'log_size'")
 
@@ -265,17 +330,39 @@ class PostProcessing:
         # Tracer la surface
         surf = ax.plot_surface(T, Y, Z, cmap='coolwarm', alpha=0.8, edgecolor='none')
 
-        ax.set_xlabel('Temps (s)')
+        # Température
+        T_temporal = np.array(self.simData['T'])[:, cell_idx]
+
+        # Normalisation (important pour contourf)
+        T_norm = (T_temporal - T_temporal.min()) / (T_temporal.max() - T_temporal.min())
+
+
+        # Position du fond
+        y_min = np.min(Y)
+        y_max = np.max(Y)
+
+        z_max = np.max(Z)
+        z_min = np.min(Z)
+        ax.plot(time_coords, (z_max - z_min) * T_norm + z_min, zs=y_min, zdir='y', color='green', linewidth=2, zorder=1000, clip_on=False, label='Temperature profile')
+
+        ax.set_xlabel('Time (ms)')
         ax.set_ylabel(ylabel)
         if log_scale:
-            ax.set_zlabel('log10(Concentration Ni [#/m3])')
+            ax.set_zlabel('log10(Ni [#/m3])')
         else:
-            ax.set_zlabel('Concentration Ni [#/m3])')
+            ax.set_zlabel('Ni [#/m3])')
 
-        ax.set_title(f'Évolution Temporelle des Suies à x = {self.simData["x"][cell_idx]:.4e} m')
+        ax.set_title(f'Soot evolution over time at x = {self.simData["x"][cell_idx]:.4e} m')
+
+        ax.invert_xaxis()
+        ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+        ax.xaxis.labelpad = 15
+        ax.yaxis.labelpad = 15
+        ax.zaxis.labelpad = 15
 
         # Ajouter une colorbar
-        fig.colorbar(surf, ax=ax, shrink=0.5, aspect=5)
+        #fig.colorbar(surf, ax=ax, shrink=0.5, aspect=5)
+        #fig.legend()
 
         plt.tight_layout()
         plt.show()

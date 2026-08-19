@@ -2,13 +2,10 @@ import torch
 import numpy as np
 import cantera as ct
 import multiprocessing as mp
-mp.set_start_method("spawn", force=True)
 from scipy.integrate import solve_ivp
 from NeuralCFD.chemestry.DummyChemistry import DummyChemistry
+from multiprocessing import shared_memory
 
-# ============================================================
-# Worker global (1 ct.Solution par process)
-# ============================================================
 
 _gas = None
 
@@ -18,9 +15,6 @@ def _init_worker(mech):
 
 
 def _integrate_cell_cst_rho(args):
-    """
-    Intégration chimique d'une cellule à densité constante.
-    """
     i, T0, Y0, rho, dt = args
     gas = _gas
     nspecies = len(Y0)
@@ -29,61 +23,53 @@ def _integrate_cell_cst_rho(args):
     y0[0] = T0
     y0[1:] = Y0
 
+    # Pré-calcul des poids moléculaires (constants !)
+    gas.TDY = T0, rho, Y0
+    W = gas.molecular_weights.copy()  # constant, calculé une fois
+
     def rhs(t, y):
         T = y[0]
         Y = y[1:]
-
         gas.TDY = T, rho, Y
 
-        omega = gas.net_production_rates              # kmol / m3 / s
-        W = gas.molecular_weights                     # kg / kmol
-        ubar = gas.partial_molar_int_energies         # J / kmol
-        cv = gas.cv_mass                              # J / kg / K
+        omega = gas.net_production_rates
+        ubar  = gas.partial_molar_int_energies
+        cv    = gas.cv_mass
 
-        dYdt = (omega * W) / rho                      # 1 / s
-        u_k = ubar / W                                # J / kg
-        dTdt = - np.dot(omega * W, u_k) / (rho * cv)  # K / s
+        oW    = omega * W
+        dYdt  = oW / rho
+        dTdt  = -np.dot(oW, ubar / W) / (rho * cv)
 
-        dydt = np.empty_like(y)
+        dydt    = np.empty_like(y)
         dydt[0] = dTdt
-        dydt[1:] = dYdt
+        dydt[1:]= dYdt
         return dydt
+    n = nspecies + 1
 
     sol = solve_ivp(
-        rhs,
-        (0.0, dt),
-        y0,
+        rhs, (0.0, dt), y0,
         method='BDF',
-        # atol=1e-12,
-        # rtol=1e-8,
+        atol=1e-22,  # 1e-12
+        rtol=0,  # 1e-8
         vectorized=False,
-        # jac=jacobian,
+        dense_output=False,  # désactive l'interpolation inutile
     )
 
     if not sol.success:
-        raise ValueError('AAAAAAAAAAAAAAAAAAAAAAAA')
         return i, T0, Y0, np.nan
 
     y_end = sol.y[:, -1]
-
     gas.TDY = y_end[0], rho, y_end[1:]
-    P = gas.P
+    return i, y_end[0], y_end[1:], gas.P
 
-    return i, y_end[0], y_end[1:], P
-
-
-# ============================================================
-# Classe principale
-# ============================================================
 
 class canteraChemMultiproc(DummyChemistry):
 
     def __init__(self, mech, ncells, nproc=None):
-        self.mech = mech
+        self.mech   = mech
         self.ncells = ncells
-        self.nproc = nproc or mp.cpu_count()
-
-        self.pool = mp.Pool(
+        self.nproc  = nproc or mp.cpu_count()
+        self.pool   = mp.Pool(
             processes=self.nproc,
             initializer=_init_worker,
             initargs=(self.mech,)
@@ -97,13 +83,10 @@ class canteraChemMultiproc(DummyChemistry):
 
     def computeIntegratedTPY(self, grid, dt, model="cst_rho"):
         if model != "cst_rho":
-            raise NotImplementedError(
-                'Only model="cst_rho" is supported (physically consistent)'
-            )
+            raise NotImplementedError
 
-        # --- Extraction NumPy ---
-        T_np = grid.cells.T.detach().cpu().numpy()
-        Y_np = grid.cells.Ys.detach().cpu().numpy()
+        T_np   = grid.cells.T.detach().cpu().numpy()
+        Y_np   = grid.cells.Ys.detach().cpu().numpy()
         rho_np = grid.cells.rho.detach().cpu().numpy()
 
         tasks = [
@@ -111,28 +94,21 @@ class canteraChemMultiproc(DummyChemistry):
             for i in range(self.ncells)
         ]
 
-        # --- Parallélisation ---
-        results = self.pool.map(
-            _integrate_cell_cst_rho,
-            tasks,
-            chunksize=max(1, self.ncells // (4 * self.nproc))
-        )
+        # Chunksize : empiriquement ~32-64 est meilleur que ncells/(4*nproc)
+        chunksize = max(1, min(64, self.ncells // self.nproc))
+        results = self.pool.map(_integrate_cell_cst_rho, tasks, chunksize=chunksize)
 
-        # --- Reconstruction torch ---
+        # Reconstruction vectorisée — pas de boucle Python
+        results.sort(key=lambda x: x[0])  # garantir l'ordre
+        T_arr = np.array([r[1] for r in results])
+        Y_arr = np.array([r[2] for r in results])
+        P_arr = np.array([r[3] for r in results])
+
         device = grid.cells.T.device
-        dtype = grid.cells.T.dtype
-
-        T_new = torch.empty_like(grid.cells.T)
-        P_new = torch.empty_like(grid.cells.T)
-        Ys_new = torch.empty_like(grid.cells.Ys)
-
-        for i, T, Y, P in results:
-            T_new[i] = T
-            Ys_new[i] = torch.from_numpy(Y)
-            P_new[i] = P
+        dtype  = grid.cells.T.dtype
 
         return (
-            T_new.to(device=device, dtype=dtype),
-            P_new.to(device=device, dtype=dtype),
-            Ys_new.to(device=device, dtype=dtype),
+            torch.from_numpy(T_arr).to(device=device, dtype=dtype),
+            torch.from_numpy(P_arr).to(device=device, dtype=dtype),
+            torch.from_numpy(Y_arr).to(device=device, dtype=dtype),
         )
